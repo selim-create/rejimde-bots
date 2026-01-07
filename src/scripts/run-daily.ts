@@ -18,7 +18,7 @@ const DELAY_BETWEEN_ACTIONS = 800;
 const REVIEW_PROBABILITY = 0.6;
 const MIN_REVIEW_RATING = 4;
 const MAX_REVIEW_RATING = 5;
-const AI_GENERATION_PROBABILITY = 0.15; // %15 ihtimalle AI içerik oluştur
+const AI_GENERATION_PROBABILITY = 0.08; // %8 ihtimalle AI içerik oluştur (global limit sayesinde düşürüldü)
 
 interface DailyStats {
   processed: number;
