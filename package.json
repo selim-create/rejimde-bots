@@ -3,26 +3,35 @@
   "version": "1.0.0",
   "description": "Rejimde Bot Simulation System",
   "main": "dist/index.js",
-"scripts": {
-  "build": "tsc",
-  "start": "node dist/index.js",
-  "dev":  "nodemon --exec ts-node src/index.ts",
-  "create-bots": "ts-node src/scripts/create-bots.ts",
-  "create-bots: dry":  "ts-node src/scripts/create-bots.ts --dry-run",
-  "create-bots:test": "ts-node src/scripts/create-bots.ts --count=5 --dry-run",
-  "run-daily": "ts-node src/scripts/run-daily.ts",
-  "toggle-bots": "ts-node src/scripts/toggle-bots.ts",
-  "test-api": "ts-node src/scripts/test-api.ts",
-  "test-generator": "ts-node src/scripts/test-generator.ts",
-  "test-db": "ts-node src/scripts/test-db.ts"
-},
-  "keywords": ["rejimde", "bots", "simulation"],
+  "scripts": {
+    "build":  "tsc",
+    "start": "node dist/index.js",
+    "dev": "nodemon --exec ts-node src/index.ts",
+    
+    "create-bots": "ts-node src/scripts/create-bots.ts",
+    "create-bots: dry": "ts-node src/scripts/create-bots.ts --dry-run",
+    "create-bots:test": "ts-node src/scripts/create-bots.ts --count=5 --dry-run",
+    "create-bots:persona": "ts-node src/scripts/create-bots.ts --persona=super_active --count=10",
+    
+    "run-daily": "ts-node src/scripts/run-daily.ts",
+    "run-daily:test": "ts-node src/scripts/run-daily.ts --limit=5",
+    
+    "toggle-bots": "ts-node src/scripts/toggle-bots.ts",
+    "toggle-bots:stats": "ts-node src/scripts/toggle-bots.ts --stats",
+    "toggle-bots:off": "ts-node src/scripts/toggle-bots.ts --all --inactive",
+    "toggle-bots:on": "ts-node src/scripts/toggle-bots.ts --all --active",
+    
+    "test-api": "ts-node src/scripts/test-api.ts",
+    "test-generator": "ts-node src/scripts/test-generator.ts",
+    "test-db": "ts-node src/scripts/test-db.ts"
+  },
+  "keywords":  ["rejimde", "bots", "simulation"],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
     "@types/better-sqlite3": "^7.6.13",
-    "@types/node": "^25.0.3",
+    "@types/node":  "^25.0.3",
     "@types/node-cron": "^3.0.11",
     "axios": "^1.13.2",
     "better-sqlite3": "^12.5.0",

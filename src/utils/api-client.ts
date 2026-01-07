@@ -1,399 +1,453 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
-import { ApiResponse, AuthResponse } from '../types';
+import {
+  ApiResponse,
+  RegisterResponse,
+  LoginResponse,
+  EventDispatchResponse,
+  BlogPost,
+  DietPlan,
+  ExercisePlan,
+  Circle,
+  Expert,
+  Comment,
+  LeaderboardUser
+} from '../types';
 import { logger } from './logger';
-import { rateLimitDelay } from './delay';
+
+const API_BASE_URL = process.env.REJIMDE_API_URL || 'https://api.rejimde.com/wp-json';
 
 export class RejimdeAPIClient {
   private client: AxiosInstance;
-  private token: string | null = null;
-  private userId: number | null = null;
-  private username: string | null = null;
+  private token:  string | null = null;
 
-  constructor(baseURL?:  string) {
-    const apiUrl = baseURL || process. env.REJIMDE_API_URL || 'https://api.rejimde.com/wp-json';
-    
-    this.client = axios.create({
-      baseURL: apiUrl,
+  constructor(token?: string) {
+    this.token = token || null;
+    this. client = axios.create({
+      baseURL: API_BASE_URL,
+      timeout: 30000,
       headers: {
         'Content-Type': 'application/json',
       },
-      timeout: 30000,
     });
 
-    // Response interceptor for error handling
-    this.client. interceptors.response.use(
-      response => response,
-      (error: AxiosError) => {
-        if (error.response) {
-          logger.error(`API Error: ${error.response. status}`, error.response.data);
-        } else if (error.request) {
-          logger.error('No response received', { url: error.config?. url });
-        } else {
-          logger.error('Request error', { message: error.message });
-        }
-        throw error;
+    // Response interceptor
+    this.client.interceptors.response.use(
+      (response) => response,
+      (error:  AxiosError) => {
+        logger.debug(`API Error: ${error.message}`);
+        return Promise.reject(error);
       }
     );
   }
 
-  // ================== AUTH ==================
-
-  setAuth(token: string, userId: number, username?:  string): void {
+  setToken(token: string): void {
     this.token = token;
-    this. userId = userId;
-    this. username = username || null;
-    this.client.defaults.headers.common['Authorization'] = `Bearer ${token}`;
   }
 
-  clearAuth(): void {
-    this.token = null;
-    this. userId = null;
-    this. username = null;
-    delete this.client.defaults.headers. common['Authorization'];
+  private getAuthHeaders(): Record<string, string> {
+    if (!this.token) return {};
+    return { Authorization: `Bearer ${this.token}` };
   }
 
-  isAuthenticated(): boolean {
-    return this.token !== null;
-  }
+  // ============ AUTH ============
 
-  getCurrentUserId(): number | null {
-    return this.userId;
-  }
-
-  /**
-   * Kullanıcı kaydı
-   */
   async register(data: {
     username: string;
     email: string;
     password: string;
-    role?:  string;
-    meta?: Record<string, any>;
-  }): Promise<ApiResponse<AuthResponse>> {
-    await rateLimitDelay();
-    
-    const response = await this. client.post('/rejimde/v1/auth/register', {
-      username: data.username,
-      email: data.email,
-      password: data.password,
-      role: data.role || 'rejimde_user',
-      meta: data. meta || {},
-    });
-
-    if (response.data.status === 'success' && response.data.data?. token) {
-      this.setAuth(
-        response.data.data.token,
-        response.data.data.user_id,
-        data.username
-      );
+    role: string;
+    meta:  Record<string, string>;
+  }): Promise<ApiResponse<RegisterResponse>> {
+    try {
+      const response = await this.client.post('/rejimde/v1/auth/register', data);
+      return response. data;
+    } catch (error:  any) {
+      return {
+        status:  'error',
+        message: error. response?.data?.message || error.message,
+      };
     }
-
-    return response. data;
   }
 
-  /**
-   * Kullanıcı girişi
-   */
-  async login(username: string, password: string): Promise<ApiResponse<AuthResponse>> {
-    await rateLimitDelay();
-    
-    const response = await this.client.post('/rejimde/v1/auth/login', {
-      username,
-      password,
-    });
-
-    if (response.data.status === 'success' && response.data.data?.token) {
-      this.setAuth(
-        response.data.data.token,
-        response.data.data.user_id,
-        username
-      );
+  async login(username: string, password:  string): Promise<ApiResponse<LoginResponse>> {
+    try {
+      const response = await this.client. post('/rejimde/v1/auth/login', {
+        username,
+        password,
+      });
+      
+      if (response. data.status === 'success' && response.data. data?. token) {
+        this.token = response.data. data.token;
+      }
+      
+      return response.data;
+    } catch (error: any) {
+      return {
+        status: 'error',
+        message: error.response?. data?.message || error.message,
+      };
     }
-
-    return response.data;
   }
 
-  // ================== GAMIFICATION ==================
+  // ============ EVENTS / GAMIFICATION ============
 
-  /**
-   * Puan kazan (event dispatch)
-   */
-  async earnPoints(action: string, entityType?:  string, entityId?: number): Promise<ApiResponse> {
-    await rateLimitDelay();
-    
-    const response = await this.client.post('/rejimde/v1/gamification/earn', {
-      action,
-      entity_type: entityType,
-      entity_id: entityId,
-    });
-    
-    return response.data;
+  async dispatchEvent(
+    eventType: string,
+    entityType?:  string | null,
+    entityId?: number | null,
+    context?: Record<string, any>
+  ): Promise<ApiResponse<EventDispatchResponse>> {
+    try {
+      const response = await this.client.post(
+        '/rejimde/v1/events/dispatch',
+        {
+          event_type: eventType,
+          entity_type: entityType,
+          entity_id: entityId,
+          context,
+        },
+        { headers: this.getAuthHeaders() }
+      );
+      return response.data;
+    } catch (error: any) {
+      return {
+        status: 'error',
+        message:  error.response?.data?.message || error. message,
+      };
+    }
   }
 
-  /**
-   * Event dispatch
-   */
-  async dispatchEvent(eventType: string, payload: Record<string, any> = {}): Promise<ApiResponse> {
-    await rateLimitDelay();
-    
-    const response = await this.client.post('/rejimde/v1/events/dispatch', {
-      event_type: eventType,
-      ... payload,
-    });
-    
-    return response.data;
+  // ============ BLOGS ============
+
+  async getBlogs(options?:  { limit?: number; offset?: number }): Promise<BlogPost[]> {
+    try {
+      const params = new URLSearchParams();
+      if (options?.limit) params.append('per_page', String(options.limit));
+      if (options?.offset) params.append('offset', String(options. offset));
+      params.append('_embed', 'true');
+
+      const response = await this.client.get(`/wp/v2/posts?${params. toString()}`);
+      
+      return response.data.map((post: any) => ({
+        id:  post.id,
+        title: post. title?. rendered || post.title,
+        slug: post. slug,
+        excerpt: (post.excerpt?.rendered || '').replace(/<[^>]+>/g, ''),
+        content: post.content?.rendered,
+        is_sticky: post.sticky || false,
+        author_id: post. author,
+      }));
+    } catch (error) {
+      logger.debug('Blog listesi alınamadı');
+      return [];
+    }
   }
 
-  /**
-   * Kullanıcı istatistikleri
-   */
-  async getMyStats(): Promise<ApiResponse> {
-    const response = await this.client.get('/rejimde/v1/gamification/me');
-    return response.data;
+  async getBlog(id: number): Promise<BlogPost | null> {
+    try {
+      const response = await this.client.get(`/wp/v2/posts/${id}`);
+      const post = response.data;
+      return {
+        id: post.id,
+        title: post.title?.rendered || post. title,
+        slug: post.slug,
+        excerpt: (post.excerpt?.rendered || '').replace(/<[^>]+>/g, ''),
+        content: post.content?.rendered,
+        is_sticky: post.sticky || false,
+        author_id: post. author,
+      };
+    } catch (error) {
+      return null;
+    }
   }
 
-  // ================== DIET ==================
+  // ============ DIETS & EXERCISES ============
 
-  /**
-   * Diyetleri listele
-   */
-  async getDiets(limit: number = 20): Promise<ApiResponse> {
-    const response = await this.client.get('/rejimde/v1/plans', {
-      params: { per_page: limit },
-    });
-    return response.data;
+  async getDiets(options?: { limit?: number }): Promise<DietPlan[]> {
+    try {
+      const params = new URLSearchParams();
+      if (options?.limit) params.append('limit', String(options. limit));
+
+      const response = await this.client.get(`/rejimde/v1/plans? ${params.toString()}`);
+      const data = response.data. data || response.data;
+      
+      return Array.isArray(data) ? data : [];
+    } catch (error) {
+      logger.debug('Diyet listesi alınamadı');
+      return [];
+    }
   }
 
-  /**
-   * Diyete başla
-   */
-  async startDiet(planId: number): Promise<ApiResponse> {
-    await rateLimitDelay();
-    const response = await this.client.post(`/rejimde/v1/plans/start/${planId}`);
-    return response.data;
+  async getExercises(options?: { limit?: number }): Promise<ExercisePlan[]> {
+    try {
+      const params = new URLSearchParams();
+      if (options?. limit) params.append('limit', String(options.limit));
+
+      const response = await this.client.get(`/rejimde/v1/exercises?${params.toString()}`);
+      const data = response. data.data || response.data;
+      
+      return Array. isArray(data) ? data : [];
+    } catch (error) {
+      logger.debug('Egzersiz listesi alınamadı');
+      return [];
+    }
   }
 
-  /**
-   * Diyeti tamamla
-   */
-  async completeDiet(planId: number): Promise<ApiResponse> {
-    await rateLimitDelay();
-    const response = await this.client.post(`/rejimde/v1/plans/complete/${planId}`);
-    return response.data;
+  async startPlan(planId:  number): Promise<ApiResponse> {
+    try {
+      const response = await this.client. post(
+        `/rejimde/v1/plans/start/${planId}`,
+        {},
+        { headers:  this.getAuthHeaders() }
+      );
+      return response. data;
+    } catch (error: any) {
+      return {
+        status:  'error',
+        message: error. response?.data?.message || error.message,
+      };
+    }
   }
 
-  /**
-   * Öğün tamamla
-   */
-  async completeMealItem(planId: number, itemId: string): Promise<ApiResponse> {
-    await rateLimitDelay();
-    const response = await this. client.post(`/rejimde/v1/progress/diet/${planId}/complete-item`, {
-      item_id: itemId,
-    });
-    return response.data;
+  async completePlan(planId: number): Promise<ApiResponse> {
+    try {
+      const response = await this.client.post(
+        `/rejimde/v1/plans/complete/${planId}`,
+        {},
+        { headers: this.getAuthHeaders() }
+      );
+      return response.data;
+    } catch (error:  any) {
+      return {
+        status: 'error',
+        message: error.response?.data?. message || error.message,
+      };
+    }
   }
 
-  // ================== EXERCISE ==================
-
-  /**
-   * Egzersizleri listele
-   */
-  async getExercises(limit:  number = 20): Promise<ApiResponse> {
-    const response = await this.client.get('/rejimde/v1/exercises', {
-      params: { per_page: limit },
-    });
-    return response.data;
-  }
-
-  /**
-   * Egzersize başla
-   */
   async startExercise(exerciseId: number): Promise<ApiResponse> {
-    await rateLimitDelay();
-    const response = await this.client.post(`/rejimde/v1/progress/exercise/${exerciseId}/start`);
-    return response.data;
+    try {
+      const response = await this.client. post(
+        `/rejimde/v1/exercises/start/${exerciseId}`,
+        {},
+        { headers: this.getAuthHeaders() }
+      );
+      return response.data;
+    } catch (error: any) {
+      return {
+        status: 'error',
+        message: error.response?.data?.message || error.message,
+      };
+    }
   }
 
-  /**
-   * Egzersizi tamamla
-   */
-  async completeExercise(exerciseId: number): Promise<ApiResponse> {
-    await rateLimitDelay();
-    const response = await this.client.post(`/rejimde/v1/progress/exercise/${exerciseId}/complete`);
-    return response.data;
+  async completeExercise(exerciseId:  number): Promise<ApiResponse> {
+    try {
+      const response = await this. client.post(
+        `/rejimde/v1/exercises/complete/${exerciseId}`,
+        {},
+        { headers: this.getAuthHeaders() }
+      );
+      return response.data;
+    } catch (error:  any) {
+      return {
+        status: 'error',
+        message: error.response?.data?. message || error.message,
+      };
+    }
   }
 
-  // ================== BLOG ==================
+  // ============ COMMENTS ============
 
-  /**
-   * Blog yazılarını listele
-   */
-  async getBlogs(limit: number = 20): Promise<ApiResponse> {
-    const response = await this. client.get('/wp/v2/posts', {
-      params: { per_page: limit, _embed: true },
-    });
-    // WordPress standart API farklı format döner
-    return { status: 'success', data: response.data };
+  async getComments(postId: number): Promise<Comment[]> {
+    try {
+      const response = await this.client. get(`/rejimde/v1/comments? post=${postId}`);
+      const data = response.data. comments || response.data. data || response.data;
+      return Array.isArray(data) ? data : [];
+    } catch (error) {
+      return [];
+    }
   }
 
-  /**
-   * Blog okuma puanı al
-   */
-  async claimBlogReward(blogId: number): Promise<ApiResponse> {
-    await rateLimitDelay();
-    const response = await this.client.post(`/rejimde/v1/progress/blog/${blogId}/claim`);
-    return response.data;
+  async createComment(data: {
+    post:  number;
+    content: string;
+    context?: string;
+    parent?: number;
+    rating?: number;
+  }): Promise<ApiResponse> {
+    try {
+      const response = await this.client. post(
+        '/rejimde/v1/comments',
+        data,
+        { headers: this. getAuthHeaders() }
+      );
+      return response.data;
+    } catch (error: any) {
+      return {
+        status: 'error',
+        message: error.response?. data?.message || error.message,
+      };
+    }
   }
 
-  // ================== COMMENTS ==================
-
-  /**
-   * Yorum yap
-   */
-  async createComment(postId: number, content: string, parentId?: number): Promise<ApiResponse> {
-    await rateLimitDelay();
-    const response = await this.client.post('/rejimde/v1/comments', {
-      post:  postId,
-      content,
-      parent: parentId || 0,
-    });
-    return response.data;
-  }
-
-  /**
-   * Yorumları getir
-   */
-  async getComments(postId: number): Promise<ApiResponse> {
-    const response = await this.client.get('/rejimde/v1/comments', {
-      params: { post: postId },
-    });
-    return response. data;
-  }
-
-  /**
-   * Yorum beğen
-   */
   async likeComment(commentId: number): Promise<ApiResponse> {
-    await rateLimitDelay();
-    const response = await this.client. post(`/rejimde/v1/comments/${commentId}/like`);
-    return response.data;
+    try {
+      const response = await this.client.post(
+        `/rejimde/v1/comments/${commentId}/like`,
+        {},
+        { headers: this. getAuthHeaders() }
+      );
+      return response.data;
+    } catch (error: any) {
+      return {
+        status: 'error',
+        message: error.response?. data?.message || error.message,
+      };
+    }
   }
 
-  // ================== SOCIAL ==================
+  // ============ SOCIAL ============
 
-  /**
-   * Kullanıcı takip et
-   */
   async followUser(userId: number): Promise<ApiResponse> {
-    await rateLimitDelay();
-    const response = await this.client. post(`/rejimde/v1/profile/${userId}/follow`);
-    return response.data;
+    try {
+      const response = await this.client.post(
+        `/rejimde/v1/profile/${userId}/follow`,
+        {},
+        { headers: this.getAuthHeaders() }
+      );
+      return response.data;
+    } catch (error: any) {
+      return {
+        status: 'error',
+        message:  error.response?.data?.message || error. message,
+      };
+    }
   }
 
-  /**
-   * Beşlik çak
-   */
   async sendHighFive(userId: number): Promise<ApiResponse> {
-    await rateLimitDelay();
-    const response = await this.client. post(`/rejimde/v1/profile/${userId}/high-five`);
-    return response.data;
+    try {
+      const response = await this.client.post(
+        `/rejimde/v1/profile/${userId}/high-five`,
+        {},
+        { headers: this.getAuthHeaders() }
+      );
+      return response.data;
+    } catch (error: any) {
+      return {
+        status: 'error',
+        message: error.response?.data?.message || error.message,
+      };
+    }
   }
 
-  /**
-   * Kullanıcı listesi
-   */
-  async getUsers(limit: number = 50): Promise<ApiResponse> {
-    const response = await this.client.get('/wp/v2/users', {
-      params: { per_page:  limit },
-    });
-    return { status: 'success', data:  response.data };
+  async getLeaderboard(options?:  { limit?: number }): Promise<LeaderboardUser[]> {
+    try {
+      const params = new URLSearchParams();
+      if (options?. limit) params.append('limit', String(options.limit));
+
+      const response = await this.client.get(`/rejimde/v1/gamification/leaderboard?${params.toString()}`);
+      const data = response. data.data || response.data;
+      return Array.isArray(data) ? data : [];
+    } catch (error) {
+      return [];
+    }
   }
 
-  // ================== CIRCLE ==================
+  // ============ CIRCLES ============
 
-  /**
-   * Circle listesi
-   */
-  async getCircles(): Promise<ApiResponse> {
-    const response = await this.client. get('/rejimde/v1/circles');
-    return response.data;
+  async getCircles(options?: { limit?: number }): Promise<Circle[]> {
+    try {
+      const params = new URLSearchParams();
+      if (options?.limit) params.append('limit', String(options. limit));
+
+      const response = await this. client.get(`/rejimde/v1/circles?${params.toString()}`);
+      const data = response.data. data || response.data;
+      return Array.isArray(data) ? data : [];
+    } catch (error) {
+      return [];
+    }
   }
 
-  /**
-   * Circle'a katıl
-   */
   async joinCircle(circleId: number): Promise<ApiResponse> {
-    await rateLimitDelay();
-    const response = await this. client.post(`/rejimde/v1/circles/${circleId}/join`);
-    return response.data;
+    try {
+      const response = await this.client.post(
+        `/rejimde/v1/circles/${circleId}/join`,
+        {},
+        { headers: this.getAuthHeaders() }
+      );
+      return response.data;
+    } catch (error: any) {
+      return {
+        status: 'error',
+        message:  error.response?.data?.message || error. message,
+      };
+    }
   }
 
-  // ================== EXPERTS ==================
+  // ============ EXPERTS ============
 
-  /**
-   * Uzman listesi
-   */
-  async getExperts(): Promise<ApiResponse> {
-    const response = await this.client. get('/rejimde/v1/experts');
-    return response. data;
+  async getExperts(options?: { limit?: number }): Promise<Expert[]> {
+    try {
+      const params = new URLSearchParams();
+      if (options?.limit) params.append('limit', String(options.limit));
+
+      const response = await this.client. get(`/rejimde/v1/professionals?${params.toString()}`);
+      const data = response. data.data || response.data;
+      return Array.isArray(data) ? data : [];
+    } catch (error) {
+      return [];
+    }
   }
 
-  /**
-   * Uzman takip et
-   */
-  async followExpert(expertId: number): Promise<ApiResponse> {
-    await rateLimitDelay();
-    const response = await this.client.post(`/rejimde/v1/profile/${expertId}/follow`);
-    return response.data;
+  async trackProfileView(expertSlug: string, sessionId: string): Promise<ApiResponse> {
+    try {
+      const response = await this.client.post('/rejimde/v1/profile-views/track', {
+        expert_slug: expertSlug,
+        session_id: sessionId,
+      });
+      return response. data;
+    } catch (error: any) {
+      return {
+        status:  'error',
+        message: error. response?.data?.message || error.message,
+      };
+    }
   }
 
-  // ================== PROGRESS ==================
+  // ============ ADMIN (for bot management) ============
 
-  /**
-   * Su kaydet
-   */
-  async logWater(amount: number = 200): Promise<ApiResponse> {
-    await rateLimitDelay();
-    return this.dispatchEvent('water_added', { amount });
-  }
-
-  /**
-   * Adım kaydet
-   */
-  async logSteps(steps: number): Promise<ApiResponse> {
-    await rateLimitDelay();
-    return this.dispatchEvent('steps_logged', { steps });
-  }
-
-  // ================== CALCULATOR ==================
-
-  /**
-   * Hesaplayıcı sonucu kaydet
-   */
-  async saveCalculator(calculatorType: string, result: Record<string, any>): Promise<ApiResponse> {
-    await rateLimitDelay();
-    const response = await this.client.post(`/rejimde/v1/progress/calculator/${calculatorType}/save`, result);
-    return response.data;
-  }
-
-  // ================== ADMIN (Bot sistemi için) ==================
-
-  /**
-   * AI ayarlarını getir (admin only)
-   */
-  async getAISettings(): Promise<ApiResponse> {
-    const response = await this. client.get('/rejimde/v1/admin/settings/ai');
-    return response.data;
-  }
-
-  /**
-   * Bot istatistikleri (admin only)
-   */
   async getBotStats(): Promise<ApiResponse> {
-    const response = await this.client.get('/rejimde/v1/admin/bots/stats');
-    return response.data;
+    try {
+      const response = await this.client. get(
+        '/rejimde/v1/admin/bots/stats',
+        { headers:  this.getAuthHeaders() }
+      );
+      return response. data;
+    } catch (error: any) {
+      return {
+        status:  'error',
+        message: error. response?.data?.message || error.message,
+      };
+    }
+  }
+
+  async toggleAllBots(active: boolean): Promise<ApiResponse> {
+    try {
+      const response = await this.client.post(
+        '/rejimde/v1/admin/bots/toggle-all',
+        { active },
+        { headers:  this.getAuthHeaders() }
+      );
+      return response. data;
+    } catch (error: any) {
+      return {
+        status:  'error',
+        message: error. response?.data?.message || error.message,
+      };
+    }
   }
 }
 
-// Singleton instance
+// Default export singleton
 export const apiClient = new RejimdeAPIClient();

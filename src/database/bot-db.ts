@@ -1,229 +1,358 @@
 import Database from 'better-sqlite3';
 import path from 'path';
-import fs from 'fs';
-import { StoredBot, PersonaType } from '../types';
-import { logger } from '../utils/logger';
+import { LocalBot, BotState, ActivityLog, PersonaType } from '../types';
 
-const DB_PATH = process.env.DB_PATH || './data/bots.db';
+const DB_PATH = path. join(process.cwd(), 'data', 'bots.sqlite');
 
 class BotDatabase {
   private db: Database. Database;
 
   constructor() {
-    // Ensure data directory exists
-    const dbDir = path.dirname(DB_PATH);
-    if (!fs.existsSync(dbDir)) {
-      fs.mkdirSync(dbDir, { recursive: true });
-    }
-
     this.db = new Database(DB_PATH);
-    this.initialize();
+    this.db.pragma('journal_mode = WAL');
+    this.initTables();
   }
 
-  private initialize(): void {
-    // Create bots table
-    this.db.exec(`
+  private initTables() {
+    // Bots tablosu
+    this. db.exec(`
       CREATE TABLE IF NOT EXISTS bots (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER UNIQUE,
-        username TEXT NOT NULL UNIQUE,
-        email TEXT NOT NULL,
+        user_id INTEGER UNIQUE NOT NULL,
+        username TEXT UNIQUE NOT NULL,
+        email TEXT UNIQUE NOT NULL,
         password TEXT NOT NULL,
         persona TEXT NOT NULL,
         batch_id TEXT NOT NULL,
         is_active INTEGER DEFAULT 1,
+        jwt_token TEXT,
+        token_expiry TEXT,
         last_login TEXT,
-        last_activity TEXT,
+        current_streak INTEGER DEFAULT 0,
         total_score INTEGER DEFAULT 0,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP
-      )
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+      
+      CREATE INDEX IF NOT EXISTS idx_bots_persona ON bots(persona);
+      CREATE INDEX IF NOT EXISTS idx_bots_batch ON bots(batch_id);
+      CREATE INDEX IF NOT EXISTS idx_bots_active ON bots(is_active);
     `);
 
-    // Create activity_logs table
+    // Bot State tablosu (JSON stored arrays)
     this.db.exec(`
+      CREATE TABLE IF NOT EXISTS bot_states (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        bot_id INTEGER UNIQUE NOT NULL,
+        started_diets TEXT DEFAULT '[]',
+        completed_diets TEXT DEFAULT '[]',
+        started_exercises TEXT DEFAULT '[]',
+        completed_exercises TEXT DEFAULT '[]',
+        followed_users TEXT DEFAULT '[]',
+        read_blogs TEXT DEFAULT '[]',
+        commented_posts TEXT DEFAULT '[]',
+        liked_comments TEXT DEFAULT '[]',
+        circle_id INTEGER,
+        active_diet_id INTEGER,
+        active_exercise_id INTEGER,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (bot_id) REFERENCES bots(id)
+      );
+    `);
+
+    // Activity Logs tablosu
+    this.db. exec(`
       CREATE TABLE IF NOT EXISTS activity_logs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         bot_id INTEGER NOT NULL,
         activity_type TEXT NOT NULL,
+        entity_type TEXT,
+        entity_id INTEGER,
         success INTEGER DEFAULT 1,
-        details TEXT,
+        response TEXT,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (bot_id) REFERENCES bots(id)
-      )
+      );
+      
+      CREATE INDEX IF NOT EXISTS idx_activities_bot ON activity_logs(bot_id);
+      CREATE INDEX IF NOT EXISTS idx_activities_type ON activity_logs(activity_type);
+      CREATE INDEX IF NOT EXISTS idx_activities_date ON activity_logs(created_at);
     `);
-
-    logger.debug('Database initialized');
   }
 
-  /**
-   * Bot kaydet
-   */
-  saveBot(bot: {
+  // ============ BOT CRUD ============
+
+  saveBot(data: {
     user_id: number;
     username: string;
     email: string;
-    password:  string;
-    persona: PersonaType;
+    password: string;
+    persona:  PersonaType;
     batch_id:  string;
   }): number {
-    const stmt = this.db.prepare(`
+    const stmt = this.db. prepare(`
       INSERT INTO bots (user_id, username, email, password, persona, batch_id)
       VALUES (?, ?, ?, ?, ?, ?)
     `);
-
     const result = stmt.run(
-      bot.user_id,
-      bot.username,
-      bot.email,
-      bot.password,
-      bot.persona,
-      bot.batch_id
+      data.user_id,
+      data.username,
+      data.email,
+      data.password,
+      data.persona,
+      data. batch_id
     );
-
-    return result.lastInsertRowid as number;
+    
+    // State kaydı oluştur
+    const botId = result.lastInsertRowid as number;
+    this.db.prepare(`INSERT INTO bot_states (bot_id) VALUES (?)`).run(botId);
+    
+    return botId;
   }
 
-  /**
-   * Bot bilgilerini getir (username ile)
-   */
-  getBotByUsername(username: string): StoredBot | null {
-    const stmt = this.db.prepare('SELECT * FROM bots WHERE username = ?');
-    return stmt.get(username) as StoredBot | null;
+  getBotById(id: number): LocalBot | undefined {
+    return this.db.prepare('SELECT * FROM bots WHERE id = ?').get(id) as LocalBot | undefined;
   }
 
-  /**
-   * Bot bilgilerini getir (user_id ile)
-   */
-  getBotByUserId(userId: number): StoredBot | null {
-    const stmt = this. db.prepare('SELECT * FROM bots WHERE user_id = ?');
-    return stmt.get(userId) as StoredBot | null;
+  getBotByUserId(userId:  number): LocalBot | undefined {
+    return this.db.prepare('SELECT * FROM bots WHERE user_id = ?').get(userId) as LocalBot | undefined;
   }
 
-  /**
-   * Tüm aktif botları getir
-   */
-  getActiveBots(): StoredBot[] {
-    const stmt = this. db.prepare('SELECT * FROM bots WHERE is_active = 1');
-    return stmt.all() as StoredBot[];
+  getBotByUsername(username: string): LocalBot | undefined {
+    return this.db. prepare('SELECT * FROM bots WHERE username = ?').get(username) as LocalBot | undefined;
   }
 
-  /**
-   * Batch'e göre botları getir
-   */
-  getBotsByBatch(batchId: string): StoredBot[] {
-    const stmt = this.db.prepare('SELECT * FROM bots WHERE batch_id = ? ');
-    return stmt.all(batchId) as StoredBot[];
+  getActiveBots(limit?:  number): LocalBot[] {
+    let query = 'SELECT * FROM bots WHERE is_active = 1';
+    if (limit) query += ` LIMIT ${limit}`;
+    return this.db.prepare(query).all() as LocalBot[];
   }
 
-  /**
-   * Persona'ya göre botları getir
-   */
-  getBotsByPersona(persona: PersonaType): StoredBot[] {
-    const stmt = this.db.prepare('SELECT * FROM bots WHERE persona = ?');
-    return stmt.all(persona) as StoredBot[];
+  getBotsByPersona(persona: PersonaType): LocalBot[] {
+    return this.db.prepare('SELECT * FROM bots WHERE persona = ?  AND is_active = 1').all(persona) as LocalBot[];
   }
 
-  /**
-   * Bot durumunu güncelle
-   */
-  updateBotStatus(botId: number, isActive: boolean): void {
-    const stmt = this.db.prepare('UPDATE bots SET is_active = ? WHERE id = ?');
-    stmt.run(isActive ?  1 : 0, botId);
+  getBotsByBatch(batchId: string): LocalBot[] {
+    return this.db.prepare('SELECT * FROM bots WHERE batch_id = ?').all(batchId) as LocalBot[];
   }
 
-  /**
-   * Son giriş zamanını güncelle
-   */
-  updateLastLogin(botId: number): void {
-    const stmt = this.db.prepare('UPDATE bots SET last_login = CURRENT_TIMESTAMP WHERE id = ?');
-    stmt.run(botId);
+  // ============ TOKEN MANAGEMENT ============
+
+  updateToken(botId:  number, token: string, expiry: Date): void {
+    this.db.prepare(`
+      UPDATE bots 
+      SET jwt_token = ?, token_expiry = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ? 
+    `).run(token, expiry. toISOString(), botId);
   }
 
-  /**
-   * Son aktivite zamanını güncelle
-   */
-  updateLastActivity(botId: number): void {
-    const stmt = this.db.prepare('UPDATE bots SET last_activity = CURRENT_TIMESTAMP WHERE id = ?');
-    stmt.run(botId);
+  updateLogin(botId: number, streak: number): void {
+    this.db.prepare(`
+      UPDATE bots 
+      SET last_login = CURRENT_TIMESTAMP, current_streak = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(streak, botId);
   }
 
-  /**
-   * Skoru güncelle
-   */
   updateScore(botId: number, score: number): void {
-    const stmt = this.db.prepare('UPDATE bots SET total_score = ?  WHERE id = ?');
-    stmt.run(score, botId);
+    this.db.prepare(`
+      UPDATE bots 
+      SET total_score = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ? 
+    `).run(score, botId);
   }
 
-  /**
-   * Aktivite logu kaydet
-   */
-  logActivity(botId: number, activityType: string, success: boolean, details?: string): void {
-    const stmt = this.db. prepare(`
-      INSERT INTO activity_logs (bot_id, activity_type, success, details)
-      VALUES (?, ?, ?, ?)
-    `);
-    stmt.run(botId, activityType, success ?  1 : 0, details || null);
-  }
+  // ============ BOT STATE ============
 
-  /**
-   * İstatistikler
-   */
-  getStats(): {
-    total: number;
-    active: number;
-    byPersona: Record<string, number>;
-    byBatch: Record<string, number>;
-  } {
-    const total = this.db.prepare('SELECT COUNT(*) as count FROM bots').get() as { count: number };
-    const active = this.db.prepare('SELECT COUNT(*) as count FROM bots WHERE is_active = 1').get() as { count: number };
-
-    const personaStats = this.db.prepare(`
-      SELECT persona, COUNT(*) as count FROM bots GROUP BY persona
-    `).all() as { persona: string; count: number }[];
-
-    const batchStats = this.db.prepare(`
-      SELECT batch_id, COUNT(*) as count FROM bots GROUP BY batch_id
-    `).all() as { batch_id: string; count: number }[];
-
-    const byPersona:  Record<string, number> = {};
-    personaStats.forEach(p => { byPersona[p.persona] = p.count; });
-
-    const byBatch: Record<string, number> = {};
-    batchStats.forEach(b => { byBatch[b.batch_id] = b.count; });
+  getState(botId:  number): BotState {
+    const row = this.db. prepare('SELECT * FROM bot_states WHERE bot_id = ?').get(botId) as any;
+    
+    if (!row) {
+      // Default state
+      return {
+        bot_id: botId,
+        started_diets: [],
+        completed_diets: [],
+        started_exercises: [],
+        completed_exercises: [],
+        followed_users:  [],
+        read_blogs: [],
+        commented_posts: [],
+        liked_comments: [],
+        circle_id: null,
+        active_diet_id: null,
+        active_exercise_id: null
+      };
+    }
 
     return {
-      total:  total.count,
-      active: active.count,
-      byPersona,
-      byBatch,
+      bot_id: botId,
+      started_diets: JSON.parse(row. started_diets || '[]'),
+      completed_diets:  JSON.parse(row.completed_diets || '[]'),
+      started_exercises:  JSON.parse(row.started_exercises || '[]'),
+      completed_exercises: JSON.parse(row. completed_exercises || '[]'),
+      followed_users: JSON. parse(row.followed_users || '[]'),
+      read_blogs: JSON.parse(row.read_blogs || '[]'),
+      commented_posts: JSON.parse(row.commented_posts || '[]'),
+      liked_comments:  JSON.parse(row.liked_comments || '[]'),
+      circle_id: row.circle_id,
+      active_diet_id: row. active_diet_id,
+      active_exercise_id: row.active_exercise_id
     };
   }
 
-  /**
-   * Batch sil
-   */
-  deleteBatch(batchId: string): number {
-    const bots = this.getBotsByBatch(batchId);
-    const botIds = bots.map(b => b.id);
+  updateState(botId:  number, state:  Partial<BotState>): void {
+    const updates:  string[] = [];
+    const values: any[] = [];
 
-    if (botIds.length > 0) {
-      const placeholders = botIds.map(() => '?').join(',');
-      this.db.prepare(`DELETE FROM activity_logs WHERE bot_id IN (${placeholders})`).run(...botIds);
+    if (state.started_diets !== undefined) {
+      updates.push('started_diets = ?');
+      values.push(JSON. stringify(state.started_diets));
+    }
+    if (state.completed_diets !== undefined) {
+      updates. push('completed_diets = ?');
+      values.push(JSON.stringify(state.completed_diets));
+    }
+    if (state. started_exercises !== undefined) {
+      updates.push('started_exercises = ?');
+      values.push(JSON.stringify(state.started_exercises));
+    }
+    if (state.completed_exercises !== undefined) {
+      updates. push('completed_exercises = ?');
+      values.push(JSON.stringify(state. completed_exercises));
+    }
+    if (state.followed_users !== undefined) {
+      updates.push('followed_users = ?');
+      values.push(JSON. stringify(state.followed_users));
+    }
+    if (state.read_blogs !== undefined) {
+      updates.push('read_blogs = ? ');
+      values.push(JSON.stringify(state.read_blogs));
+    }
+    if (state.commented_posts !== undefined) {
+      updates.push('commented_posts = ?');
+      values.push(JSON.stringify(state.commented_posts));
+    }
+    if (state. liked_comments !== undefined) {
+      updates.push('liked_comments = ?');
+      values.push(JSON.stringify(state.liked_comments));
+    }
+    if (state.circle_id !== undefined) {
+      updates. push('circle_id = ?');
+      values.push(state.circle_id);
+    }
+    if (state.active_diet_id !== undefined) {
+      updates.push('active_diet_id = ?');
+      values.push(state. active_diet_id);
+    }
+    if (state. active_exercise_id !== undefined) {
+      updates.push('active_exercise_id = ?');
+      values.push(state.active_exercise_id);
     }
 
-    const stmt = this.db.prepare('DELETE FROM bots WHERE batch_id = ?');
-    const result = stmt.run(batchId);
+    if (updates.length === 0) return;
+
+    updates.push('updated_at = CURRENT_TIMESTAMP');
+    values.push(botId);
+
+    this.db. prepare(`
+      UPDATE bot_states SET ${updates.join(', ')} WHERE bot_id = ? 
+    `).run(...values);
+  }
+
+  // ============ ACTIVITY LOGGING ============
+
+  logActivity(
+    botId: number,
+    activityType: string,
+    entityType?:  string | null,
+    entityId?: number | null,
+    success:  boolean = true,
+    response?: string | null
+  ): void {
+    this.db.prepare(`
+      INSERT INTO activity_logs (bot_id, activity_type, entity_type, entity_id, success, response)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(botId, activityType, entityType, entityId, success ?  1 : 0, response);
+  }
+
+  getRecentActivities(botId: number, limit: number = 50): ActivityLog[] {
+    return this.db.prepare(`
+      SELECT * FROM activity_logs 
+      WHERE bot_id = ? 
+      ORDER BY created_at DESC 
+      LIMIT ?
+    `).all(botId, limit) as ActivityLog[];
+  }
+
+  getTodayActivities(botId: number, activityType?:  string): ActivityLog[] {
+    let query = `
+      SELECT * FROM activity_logs 
+      WHERE bot_id = ?  AND date(created_at) = date('now')
+    `;
+    const params:  any[] = [botId];
+    
+    if (activityType) {
+      query += ' AND activity_type = ?';
+      params.push(activityType);
+    }
+    
+    return this.db.prepare(query).all(...params) as ActivityLog[];
+  }
+
+  // ============ STATISTICS ============
+
+  getStats(): { total:  number; active: number; byPersona: Record<string, number>; byBatch:  Record<string, number> } {
+    const total = (this.db.prepare('SELECT COUNT(*) as count FROM bots').get() as any).count;
+    const active = (this.db.prepare('SELECT COUNT(*) as count FROM bots WHERE is_active = 1').get() as any).count;
+    
+    const personaRows = this.db. prepare(`
+      SELECT persona, COUNT(*) as count FROM bots GROUP BY persona
+    `).all() as { persona: string; count: number }[];
+    const byPersona: Record<string, number> = {};
+    personaRows.forEach(r => byPersona[r. persona] = r.count);
+
+    const batchRows = this.db.prepare(`
+      SELECT batch_id, COUNT(*) as count FROM bots GROUP BY batch_id
+    `).all() as { batch_id: string; count: number }[];
+    const byBatch: Record<string, number> = {};
+    batchRows.forEach(r => byBatch[r.batch_id] = r.count);
+
+    return { total, active, byPersona, byBatch };
+  }
+
+  // ============ BULK OPERATIONS ============
+
+  toggleAllBots(active: boolean): number {
+    const result = this.db. prepare('UPDATE bots SET is_active = ? ').run(active ? 1 : 0);
     return result.changes;
   }
 
-  /**
-   * Veritabanını kapat
-   */
+  toggleBatchBots(batchId: string, active: boolean): number {
+    const result = this.db. prepare('UPDATE bots SET is_active = ?  WHERE batch_id = ?').run(active ?  1 : 0, batchId);
+    return result.changes;
+  }
+
+  deleteBatch(batchId: string): number {
+    // Önce state'leri sil
+    this. db.prepare(`
+      DELETE FROM bot_states WHERE bot_id IN (SELECT id FROM bots WHERE batch_id = ?)
+    `).run(batchId);
+    
+    // Sonra aktiviteleri sil
+    this.db. prepare(`
+      DELETE FROM activity_logs WHERE bot_id IN (SELECT id FROM bots WHERE batch_id = ?)
+    `).run(batchId);
+    
+    // Son olarak botları sil
+    const result = this.db.prepare('DELETE FROM bots WHERE batch_id = ?').run(batchId);
+    return result.changes;
+  }
+
   close(): void {
-    this.db. close();
+    this.db.close();
   }
 }
 
-// Singleton instance
+// Singleton export
 export const botDb = new BotDatabase();

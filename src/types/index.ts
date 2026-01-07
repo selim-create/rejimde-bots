@@ -1,27 +1,4 @@
-// User Types
-export interface BotUser {
-  id?:  number;
-  username: string;
-  email: string;
-  password: string;
-  name:  string;
-  gender: 'male' | 'female';
-  birth_date: string;
-  height: number;
-  current_weight: number;
-  target_weight: number;
-  goal: 'weight_loss' | 'muscle_gain' | 'healthy_living';
-  activity_level: 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
-  description: string;
-  location: string;
-  avatar_url:  string;
-  // Simulation metadata
-  is_simulation: boolean;
-  simulation_persona: PersonaType;
-  simulation_batch: string;
-  simulation_active: boolean;
-}
-
+// Persona Types
 export type PersonaType = 
   | 'super_active' 
   | 'active' 
@@ -31,63 +8,163 @@ export type PersonaType =
   | 'diet_focused' 
   | 'exercise_focused';
 
+// Bot User Profile (Generator'ın ürettiği)
+export interface BotUser {
+  username: string;
+  email: string;
+  password: string;
+  name: string;
+  gender: 'male' | 'female';
+  birth_date: string;
+  height: number;
+  current_weight: number;
+  target_weight: number;
+  goal:  string;
+  activity_level: string;
+  description: string;
+  location: string;
+  avatar_url: string;
+}
+
+// Alias for backward compatibility
+export type BotUserProfile = BotUser;
+
+// Local DB'de tutulan bot
+export interface LocalBot {
+  id:  number;
+  user_id: number;
+  username: string;
+  email:  string;
+  password: string;
+  persona: PersonaType;
+  batch_id: string;
+  is_active: number;
+  jwt_token: string | null;
+  token_expiry: string | null;
+  last_login: string | null;
+  current_streak: number;
+  total_score: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// Bot State
+export interface BotState {
+  bot_id: number;
+  started_diets: number[];
+  completed_diets: number[];
+  started_exercises: number[];
+  completed_exercises: number[];
+  followed_users: number[];
+  read_blogs: number[];
+  commented_posts: number[];
+  liked_comments: number[];
+  circle_id: number | null;
+  active_diet_id: number | null;
+  active_exercise_id: number | null;
+}
+
+// Activity Log
+export interface ActivityLog {
+  id: number;
+  bot_id: number;
+  activity_type: string;
+  entity_type: string | null;
+  entity_id: number | null;
+  success: number;
+  response:  string | null;
+  created_at: string;
+}
+
 // API Response Types
 export interface ApiResponse<T = any> {
   status: 'success' | 'error';
-  data?: T;
   message?: string;
+  data?: T;
 }
 
-export interface AuthResponse {
+export interface RegisterResponse {
+  user_id: number;
+  username: string;
+  email:  string;
+  token?:  string;
+}
+
+export interface LoginResponse {
   token: string;
   user_id: number;
   user_email: string;
   user_display_name: string;
-  user_nicename: string;
-  roles: string[];
+  current_streak?:  number;
 }
 
-// Activity Types
-export interface ActivityConfig {
-  daily_login?:  number;
-  blog_read?: number;
-  blog_comment?: number;
-  comment_reply?: number;
-  diet_start?: number;
-  diet_meal_complete?: number;
-  diet_comment?: number;
-  exercise_start?: number;
-  exercise_complete?: number;
-  water_log?: number;
-  step_log?: number;
-  meal_log?: number;
-  circle_join?: number;
-  follow_user?: number;
-  high_five?: number;
-  expert_follow?: number;
-  calculator_use?: number;
-  like_comment?: number;
+export interface EventDispatchResponse {
+  success: boolean;
+  points_earned?:  number;
+  daily_score?: number;
+  total_score?: number;
+  current_streak?: number;
+  message?: string;
 }
 
-export interface PersonaConfig {
-  count: number;
-  description: string;
-  activities: ActivityConfig;
-  ai_enabled: boolean;
+// Content Types
+export interface BlogPost {
+  id:  number;
+  title: string;
+  slug: string;
+  excerpt: string;
+  content?:  string;
+  is_sticky?:  boolean;
+  author_id?:  number;
 }
 
-// Database Types
-export interface StoredBot {
+export interface DietPlan {
   id: number;
-  user_id: number;
-  username: string;
-  email: string;
-  password: string;  // ← BU SATIRI EKLE
-  persona: PersonaType;
-  batch_id: string;
-  is_active: boolean;
-  last_login: string | null;
-  last_activity: string | null;
+  title: string;
+  slug: string;
+  difficulty?:  string;
+  duration?: string;
+  score_reward?: number;
+}
+
+export interface ExercisePlan {
+  id: number;
+  title: string;
+  slug:  string;
+  difficulty?: string;
+  duration?: string;
+  score_reward?:  number;
+}
+
+export interface Circle {
+  id:  number;
+  name: string;
+  slug: string;
+  member_count: number;
   total_score: number;
-  created_at: string;
+}
+
+export interface Expert {
+  id:  number;
+  user_id: number;
+  name: string;
+  slug: string;
+  profession: string;
+}
+
+export interface Comment {
+  id:  number;
+  content: string;
+  author_id: number;
+  author_name: string;
+  parent:  number;
+  reply_count?:  number;
+}
+
+export interface LeaderboardUser {
+  id:  number;
+  name: string;
+  username: string;
+  avatar_url: string;
+  total_score: number;
 }
