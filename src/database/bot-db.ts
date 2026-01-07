@@ -619,24 +619,33 @@ class BotDatabase {
 
       if (!existing) {
         // İlk kayıt - oluştur
+        // Race condition handling: INSERT OR IGNORE ile eşzamanlı INSERT'leri yönet
         this.db.prepare(`
-          INSERT INTO global_limits (date, diets_created, exercises_created, updated_at)
-          VALUES (?, 1, 0, CURRENT_TIMESTAMP)
+          INSERT OR IGNORE INTO global_limits (date, diets_created, exercises_created, updated_at)
+          VALUES (?, 0, 0, CURRENT_TIMESTAMP)
         `).run(date);
-        return true;
-      }
-
-      // Limit kontrolü
-      if (existing.diets_created >= limit) {
-        return false; // Limit doldu
+        
+        // Tekrar oku (başka transaction oluşturmuş olabilir)
+        const recheck = this.db.prepare(`
+          SELECT diets_created FROM global_limits WHERE date = ?
+        `).get(date) as { diets_created: number } | undefined;
+        
+        if (!recheck || recheck.diets_created >= limit) {
+          return false;
+        }
+      } else {
+        // Limit kontrolü
+        if (existing.diets_created >= limit) {
+          return false; // Limit doldu
+        }
       }
 
       // Sayacı artır
       this.db.prepare(`
         UPDATE global_limits 
         SET diets_created = diets_created + 1, updated_at = CURRENT_TIMESTAMP
-        WHERE date = ?
-      `).run(date);
+        WHERE date = ? AND diets_created < ?
+      `).run(date, limit);
       
       return true;
     });
@@ -660,24 +669,33 @@ class BotDatabase {
 
       if (!existing) {
         // İlk kayıt - oluştur
+        // Race condition handling: INSERT OR IGNORE ile eşzamanlı INSERT'leri yönet
         this.db.prepare(`
-          INSERT INTO global_limits (date, diets_created, exercises_created, updated_at)
-          VALUES (?, 0, 1, CURRENT_TIMESTAMP)
+          INSERT OR IGNORE INTO global_limits (date, diets_created, exercises_created, updated_at)
+          VALUES (?, 0, 0, CURRENT_TIMESTAMP)
         `).run(date);
-        return true;
-      }
-
-      // Limit kontrolü
-      if (existing.exercises_created >= limit) {
-        return false; // Limit doldu
+        
+        // Tekrar oku (başka transaction oluşturmuş olabilir)
+        const recheck = this.db.prepare(`
+          SELECT exercises_created FROM global_limits WHERE date = ?
+        `).get(date) as { exercises_created: number } | undefined;
+        
+        if (!recheck || recheck.exercises_created >= limit) {
+          return false;
+        }
+      } else {
+        // Limit kontrolü
+        if (existing.exercises_created >= limit) {
+          return false; // Limit doldu
+        }
       }
 
       // Sayacı artır
       this.db.prepare(`
         UPDATE global_limits 
         SET exercises_created = exercises_created + 1, updated_at = CURRENT_TIMESTAMP
-        WHERE date = ?
-      `).run(date);
+        WHERE date = ? AND exercises_created < ?
+      `).run(date, limit);
       
       return true;
     });

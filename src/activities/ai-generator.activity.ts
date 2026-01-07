@@ -18,7 +18,9 @@ export async function performAIGeneratorActivity(
   try {
     const today = new Date().toISOString().split('T')[0];
 
-    // 1. Global limit kontrolü
+    // 1. Global limit kontrolü (hızlı ön-kontrol, kesin değil)
+    // Not: Bu kontrol ile rezervasyon arasında race condition olabilir,
+    // ancak bu kasıtlı bir tasarım - gereksiz rezervasyon denemelerini azaltmak için
     const canDiet = botDb.canCreateDiet(today, GLOBAL_LIMITS.DAILY_DIET_LIMIT);
     const canExercise = botDb.canCreateExercise(today, GLOBAL_LIMITS.DAILY_EXERCISE_LIMIT);
 
