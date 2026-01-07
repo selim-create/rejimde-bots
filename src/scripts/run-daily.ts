@@ -9,7 +9,7 @@ import { logger } from '../utils/logger';
 import { delay } from '../utils/delay';
 import { shouldPerform, pickRandom, randomInt } from '../utils/random';
 import { LocalBot, BotState, PersonaType } from '../types';
-import { OpenAIService } from '../services/openai-service';
+import { OpenAIService } from '../services/openai.service';
 
 // Ayarlar
 const DELAY_BETWEEN_BOTS = 3000;
@@ -346,8 +346,7 @@ async function performExerciseActivities(
 
         if (available.length > 0) {
           const exercise = pickRandom(available);
-          const result = await client.startExercise(exercise.id);
-
+          const result = await client.startExerciseProgress(exercise.id);
           if (result.status === 'success') {
             state.started_exercises.push(exercise.id);
             state.active_exercise_id = exercise. id;

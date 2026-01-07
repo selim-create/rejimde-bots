@@ -14,10 +14,10 @@ import {
 } from '../types';
 import { logger } from './logger';
 
-const API_BASE_URL = process.env.REJIMDE_API_URL || 'https://api.rejimde.com/wp-json';
+const API_BASE_URL = process.env. REJIMDE_API_URL || 'https://api.rejimde.com/wp-json';
 
 export class RejimdeAPIClient {
-  private client: AxiosInstance;
+  private client:  AxiosInstance;
   private token:  string | null = null;
 
   constructor(token?: string) {
@@ -30,11 +30,16 @@ export class RejimdeAPIClient {
       },
     });
 
-    // Response interceptor
+    // Response interceptor - daha detaylı log
     this.client.interceptors.response.use(
       (response) => response,
       (error:  AxiosError) => {
-        logger.debug(`API Error: ${error.message}`);
+        const url = error.config?.url || 'unknown';
+        const method = error. config?.method?. toUpperCase() || 'unknown';
+        const status = error.response?. status || 'no response';
+        const message = (error.response?.data as any)?.message || error.message;
+        
+        logger. debug(`API Error [${status}] ${method} ${url}: ${message}`);
         return Promise.reject(error);
       }
     );
@@ -45,7 +50,7 @@ export class RejimdeAPIClient {
   }
 
   private getAuthHeaders(): Record<string, string> {
-    if (!this.token) return {};
+    if (! this.token) return {};
     return { Authorization: `Bearer ${this.token}` };
   }
 
@@ -53,15 +58,15 @@ export class RejimdeAPIClient {
 
   async register(data: {
     username: string;
-    email: string;
+    email:  string;
     password: string;
     role: string;
     meta:  Record<string, string>;
   }): Promise<ApiResponse<RegisterResponse>> {
     try {
       const response = await this.client.post('/rejimde/v1/auth/register', data);
-      return response. data;
-    } catch (error:  any) {
+      return response.data;
+    } catch (error: any) {
       return {
         status:  'error',
         message: error. response?.data?.message || error.message,
@@ -76,8 +81,8 @@ export class RejimdeAPIClient {
         password,
       });
       
-      if (response. data.status === 'success' && response.data. data?. token) {
-        this.token = response.data. data.token;
+      if (response.data. status === 'success' && response.data. data?. token) {
+        this.token = response.data.data. token;
       }
       
       return response.data;
@@ -106,36 +111,36 @@ export class RejimdeAPIClient {
           entity_id: entityId,
           context,
         },
-        { headers: this.getAuthHeaders() }
+        { headers: this. getAuthHeaders() }
       );
       return response.data;
     } catch (error: any) {
       return {
         status: 'error',
-        message:  error.response?.data?.message || error. message,
+        message: error.response?. data?.message || error.message,
       };
     }
   }
 
   // ============ BLOGS ============
 
-  async getBlogs(options?:  { limit?: number; offset?: number }): Promise<BlogPost[]> {
+  async getBlogs(options?: { limit?: number; offset?: number }): Promise<BlogPost[]> {
     try {
       const params = new URLSearchParams();
       if (options?.limit) params.append('per_page', String(options.limit));
-      if (options?.offset) params.append('offset', String(options. offset));
+      if (options?.offset) params.append('offset', String(options.offset));
       params.append('_embed', 'true');
 
-      const response = await this.client.get(`/wp/v2/posts?${params. toString()}`);
+      const response = await this.client. get(`/wp/v2/posts?${params.toString()}`);
       
       return response.data.map((post: any) => ({
         id:  post.id,
         title: post. title?. rendered || post.title,
-        slug: post. slug,
+        slug: post.slug,
         excerpt: (post.excerpt?.rendered || '').replace(/<[^>]+>/g, ''),
         content: post.content?.rendered,
         is_sticky: post.sticky || false,
-        author_id: post. author,
+        author_id: post.author,
       }));
     } catch (error) {
       logger.debug('Blog listesi alınamadı');
@@ -145,58 +150,26 @@ export class RejimdeAPIClient {
 
   async getBlog(id: number): Promise<BlogPost | null> {
     try {
-      const response = await this.client.get(`/wp/v2/posts/${id}`);
+      const response = await this. client.get(`/wp/v2/posts/${id}`);
       const post = response.data;
       return {
-        id: post.id,
-        title: post.title?.rendered || post. title,
+        id:  post.id,
+        title: post. title?.rendered || post.title,
         slug: post.slug,
-        excerpt: (post.excerpt?.rendered || '').replace(/<[^>]+>/g, ''),
+        excerpt:  (post.excerpt?. rendered || '').replace(/<[^>]+>/g, ''),
         content: post.content?.rendered,
         is_sticky: post.sticky || false,
-        author_id: post. author,
+        author_id: post.author,
       };
     } catch (error) {
       return null;
     }
   }
 
-  // ============ DIETS & EXERCISES ============
-
-  async getDiets(options?: { limit?: number }): Promise<DietPlan[]> {
-    try {
-      const params = new URLSearchParams();
-      if (options?.limit) params.append('limit', String(options. limit));
-
-      const response = await this.client.get(`/rejimde/v1/plans? ${params.toString()}`);
-      const data = response.data. data || response.data;
-      
-      return Array.isArray(data) ? data : [];
-    } catch (error) {
-      logger.debug('Diyet listesi alınamadı');
-      return [];
-    }
-  }
-
-  async getExercises(options?: { limit?: number }): Promise<ExercisePlan[]> {
-    try {
-      const params = new URLSearchParams();
-      if (options?. limit) params.append('limit', String(options.limit));
-
-      const response = await this.client.get(`/rejimde/v1/exercises?${params.toString()}`);
-      const data = response. data.data || response.data;
-      
-      return Array. isArray(data) ? data : [];
-    } catch (error) {
-      logger.debug('Egzersiz listesi alınamadı');
-      return [];
-    }
-  }
-
-  async startPlan(planId:  number): Promise<ApiResponse> {
+  async claimBlogReward(blogId: number): Promise<ApiResponse> {
     try {
       const response = await this.client. post(
-        `/rejimde/v1/plans/start/${planId}`,
+        `/rejimde/v1/progress/blog/${blogId}/claim`,
         {},
         { headers:  this.getAuthHeaders() }
       );
@@ -209,26 +182,27 @@ export class RejimdeAPIClient {
     }
   }
 
-  async completePlan(planId: number): Promise<ApiResponse> {
+  // ============ DIETS ============
+
+  async getDiets(options?: { limit?: number }): Promise<DietPlan[]> {
     try {
-      const response = await this.client.post(
-        `/rejimde/v1/plans/complete/${planId}`,
-        {},
-        { headers: this.getAuthHeaders() }
-      );
-      return response.data;
-    } catch (error:  any) {
-      return {
-        status: 'error',
-        message: error.response?.data?. message || error.message,
-      };
+      const params = new URLSearchParams();
+      if (options?. limit) params.append('limit', String(options. limit));
+
+      const response = await this. client.get(`/rejimde/v1/plans?${params.toString()}`);
+      const data = response.data. data || response.data;
+      
+      return Array.isArray(data) ? data : [];
+    } catch (error) {
+      logger.debug('Diyet listesi alınamadı');
+      return [];
     }
   }
 
-  async startExercise(exerciseId: number): Promise<ApiResponse> {
+  async startDiet(dietId:  number): Promise<ApiResponse> {
     try {
-      const response = await this.client. post(
-        `/rejimde/v1/exercises/start/${exerciseId}`,
+      const response = await this. client.post(
+        `/rejimde/v1/progress/diet/${dietId}/start`,
         {},
         { headers: this.getAuthHeaders() }
       );
@@ -236,15 +210,57 @@ export class RejimdeAPIClient {
     } catch (error: any) {
       return {
         status: 'error',
-        message: error.response?.data?.message || error.message,
+        message:  error.response?.data?.message || error. message,
       };
     }
   }
 
-  async completeExercise(exerciseId:  number): Promise<ApiResponse> {
+  async completeDiet(dietId: number): Promise<ApiResponse> {
     try {
-      const response = await this. client.post(
-        `/rejimde/v1/exercises/complete/${exerciseId}`,
+      const response = await this.client.post(
+        `/rejimde/v1/progress/diet/${dietId}/complete`,
+        {},
+        { headers: this.getAuthHeaders() }
+      );
+      return response.data;
+    } catch (error: any) {
+      return {
+        status: 'error',
+        message:  error.response?.data?.message || error. message,
+      };
+    }
+  }
+
+  // Eski metodlar - yeni endpoint'lere yönlendir
+  async startPlan(planId:  number): Promise<ApiResponse> {
+    return this.startDiet(planId);
+  }
+
+  async completePlan(planId: number): Promise<ApiResponse> {
+    return this.completeDiet(planId);
+  }
+
+  // ============ EXERCISES ============
+
+  async getExercises(options?: { limit?:  number }): Promise<ExercisePlan[]> {
+    try {
+      const params = new URLSearchParams();
+      if (options?.limit) params.append('limit', String(options. limit));
+
+      const response = await this. client.get(`/rejimde/v1/exercises?${params.toString()}`);
+      const data = response. data.data || response.data;
+      
+      return Array. isArray(data) ? data : [];
+    } catch (error) {
+      logger.debug('Egzersiz listesi alınamadı');
+      return [];
+    }
+  }
+
+  async startExerciseProgress(exerciseId: number): Promise<ApiResponse> {
+    try {
+      const response = await this.client.post(
+        `/rejimde/v1/progress/exercise/${exerciseId}/start`,
         {},
         { headers: this.getAuthHeaders() }
       );
@@ -255,6 +271,31 @@ export class RejimdeAPIClient {
         message: error.response?.data?. message || error.message,
       };
     }
+  }
+
+  async completeExerciseProgress(exerciseId: number): Promise<ApiResponse> {
+    try {
+      const response = await this.client.post(
+        `/rejimde/v1/progress/exercise/${exerciseId}/complete`,
+        {},
+        { headers: this.getAuthHeaders() }
+      );
+      return response.data;
+    } catch (error:  any) {
+      return {
+        status: 'error',
+        message: error.response?.data?. message || error.message,
+      };
+    }
+  }
+
+  // Eski metodlar - yeni endpoint'lere yönlendir
+  async startExercise(exerciseId: number): Promise<ApiResponse> {
+    return this. startExerciseProgress(exerciseId);
+  }
+
+  async completeExercise(exerciseId: number): Promise<ApiResponse> {
+    return this.completeExerciseProgress(exerciseId);
   }
 
   // ============ COMMENTS ============
@@ -272,7 +313,6 @@ export class RejimdeAPIClient {
   async createComment(data: {
     post:  number;
     content: string;
-    context?: string;
     parent?: number;
     rating?: number;
   }): Promise<ApiResponse> {
@@ -296,13 +336,13 @@ export class RejimdeAPIClient {
       const response = await this.client.post(
         `/rejimde/v1/comments/${commentId}/like`,
         {},
-        { headers: this. getAuthHeaders() }
+        { headers:  this.getAuthHeaders() }
       );
-      return response.data;
+      return response. data;
     } catch (error: any) {
       return {
-        status: 'error',
-        message: error.response?. data?.message || error.message,
+        status:  'error',
+        message: error. response?.data?.message || error.message,
       };
     }
   }
@@ -311,7 +351,7 @@ export class RejimdeAPIClient {
 
   async followUser(userId: number): Promise<ApiResponse> {
     try {
-      const response = await this.client.post(
+      const response = await this.client. post(
         `/rejimde/v1/profile/${userId}/follow`,
         {},
         { headers: this.getAuthHeaders() }
@@ -327,16 +367,16 @@ export class RejimdeAPIClient {
 
   async sendHighFive(userId: number): Promise<ApiResponse> {
     try {
-      const response = await this.client.post(
+      const response = await this.client. post(
         `/rejimde/v1/profile/${userId}/high-five`,
         {},
-        { headers: this.getAuthHeaders() }
+        { headers: this. getAuthHeaders() }
       );
       return response.data;
     } catch (error: any) {
       return {
         status: 'error',
-        message: error.response?.data?.message || error.message,
+        message: error.response?. data?.message || error.message,
       };
     }
   }
@@ -384,96 +424,16 @@ export class RejimdeAPIClient {
       };
     }
   }
-  // ============ PROGRESS ENDPOINTS ============
 
-  async claimBlogReward(blogId: number): Promise<ApiResponse> {
-    try {
-      const response = await this.client.post(
-        `/rejimde/v1/progress/blog/${blogId}/claim`,
-        {},
-        { headers:  this.getAuthHeaders() }
-      );
-      return response. data;
-    } catch (error: any) {
-      return {
-        status:  'error',
-        message: error. response?.data?.message || error.message,
-      };
-    }
-  }
-
-  async startDiet(dietId: number): Promise<ApiResponse> {
-    try {
-      const response = await this.client.post(
-        `/rejimde/v1/progress/diet/${dietId}/start`,
-        {},
-        { headers: this.getAuthHeaders() }
-      );
-      return response.data;
-    } catch (error: any) {
-      return {
-        status: 'error',
-        message:  error.response?.data?.message || error. message,
-      };
-    }
-  }
-
-  async completeDiet(dietId: number): Promise<ApiResponse> {
-    try {
-      const response = await this.client.post(
-        `/rejimde/v1/progress/diet/${dietId}/complete`,
-        {},
-        { headers: this.getAuthHeaders() }
-      );
-      return response.data;
-    } catch (error: any) {
-      return {
-        status: 'error',
-        message:  error.response?.data?.message || error. message,
-      };
-    }
-  }
-
-  async startExerciseProgress(exerciseId: number): Promise<ApiResponse> {
-    try {
-      const response = await this.client.post(
-        `/rejimde/v1/progress/exercise/${exerciseId}/start`,
-        {},
-        { headers: this. getAuthHeaders() }
-      );
-      return response.data;
-    } catch (error: any) {
-      return {
-        status: 'error',
-        message: error.response?. data?.message || error.message,
-      };
-    }
-  }
-
-  async completeExerciseProgress(exerciseId: number): Promise<ApiResponse> {
-    try {
-      const response = await this.client.post(
-        `/rejimde/v1/progress/exercise/${exerciseId}/complete`,
-        {},
-        { headers: this. getAuthHeaders() }
-      );
-      return response.data;
-    } catch (error: any) {
-      return {
-        status: 'error',
-        message: error.response?. data?.message || error.message,
-      };
-    }
-  }
   // ============ EXPERTS ============
 
   async getExperts(options?: { limit?: number }): Promise<Expert[]> {
     try {
       const params = new URLSearchParams();
-      if (options?.limit) params.append('limit', String(options.limit));
+      if (options?.limit) params.append('limit', String(options. limit));
 
-      const response = await this.client. get(`/rejimde/v1/professionals?${params.toString()}`);
-      const data = response. data.data || response.data;
+      const response = await this. client.get(`/rejimde/v1/professionals?${params.toString()}`);
+      const data = response.data. data || response.data;
       return Array.isArray(data) ? data : [];
     } catch (error) {
       return [];
@@ -483,51 +443,35 @@ export class RejimdeAPIClient {
   async trackProfileView(expertSlug: string, sessionId: string): Promise<ApiResponse> {
     try {
       const response = await this.client.post('/rejimde/v1/profile-views/track', {
-        expert_slug: expertSlug,
-        session_id: sessionId,
+        expert_slug:  expertSlug,
+        session_id:  sessionId,
       });
-      return response. data;
-    } catch (error: any) {
+      return response.data;
+    } catch (error:  any) {
       return {
-        status:  'error',
-        message: error. response?.data?.message || error.message,
+        status: 'error',
+        message: error.response?.data?. message || error.message,
       };
     }
   }
 
-  // ============ ADMIN (for bot management) ============
-
-  async getBotStats(): Promise<ApiResponse> {
-    try {
-      const response = await this.client. get(
-        '/rejimde/v1/admin/bots/stats',
-        { headers:  this.getAuthHeaders() }
-      );
-      return response. data;
-    } catch (error: any) {
-      return {
-        status:  'error',
-        message: error. response?.data?.message || error.message,
-      };
-    }
-  }
+  // ============ ADMIN ============
 
   async toggleAllBots(active: boolean): Promise<ApiResponse> {
     try {
       const response = await this.client.post(
         '/rejimde/v1/admin/bots/toggle-all',
         { active },
-        { headers:  this.getAuthHeaders() }
+        { headers: this. getAuthHeaders() }
       );
-      return response. data;
+      return response.data;
     } catch (error: any) {
       return {
-        status:  'error',
-        message: error. response?.data?.message || error.message,
+        status: 'error',
+        message: error.response?. data?.message || error.message,
       };
     }
   }
 }
 
-// Default export singleton
 export const apiClient = new RejimdeAPIClient();

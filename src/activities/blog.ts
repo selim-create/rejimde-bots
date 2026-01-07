@@ -76,12 +76,12 @@ async function readBlog(
 
 async function commentOnBlog(
   bot: LocalBot,
-  state: BotState,
+  state:  BotState,
   client: RejimdeAPIClient,
-  openai:  OpenAIService
+  openai: OpenAIService
 ): Promise<void> {
   try {
-    const uncommentedBlogs = state.read_blogs.filter(id => !state.commented_posts.includes(id));
+    const uncommentedBlogs = state.read_blogs.filter(id => ! state.commented_posts.includes(id));
     
     if (uncommentedBlogs.length === 0) return;
     
@@ -90,22 +90,25 @@ async function commentOnBlog(
     
     if (!blog) return;
     
-    const comment = await openai.generateBlogComment(blog.title, blog.excerpt);
+    const commentText = await openai.generateBlogComment(blog.title, blog.excerpt);
     
+    // Sadece gerekli alanları gönder
     const result = await client.createComment({
       post:  blogId,
-      content: comment,
-      context: 'blog'
+      content: commentText
+      // context kaldırıldı - backend'de sorun yaratıyor olabilir
     });
     
     if (result.status === 'success') {
       state.commented_posts.push(blogId);
-      botDb.updateState(bot.id, { commented_posts: state. commented_posts });
+      botDb.updateState(bot.id, { commented_posts:  state.commented_posts });
       botDb.logActivity(bot.id, 'blog_comment', 'blog', blogId, true);
-      logger.bot(bot.username, `Blog yorumu: "${comment.substring(0, 50)}..."`);
+      logger.bot(bot.username, `Blog yorumu: "${commentText. substring(0, 50)}..."`);
+    } else {
+      logger.debug(`[${bot.username}] Yorum hatası: ${result. message}`);
     }
   } catch (error: any) {
-    logger.debug(`[${bot.username}] Yorum hatası: ${error. message}`);
+    logger. debug(`[${bot.username}] Yorum hatası: ${error.message}`);
   }
 }
 

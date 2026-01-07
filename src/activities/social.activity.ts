@@ -103,20 +103,33 @@ async function joinCircle(
   client: RejimdeAPIClient
 ): Promise<void> {
   try {
-    const circles = await client. getCircles({ limit: 20 });
+    // Zaten bir circle'da ise yeni circle'a katılma
+    if (state.circle_id) {
+      logger.debug(`[${bot.username}] Zaten bir circle'da:  ${state.circle_id}`);
+      return;
+    }
+
+    const circles = await client.getCircles({ limit: 20 });
     
-    if (circles. length === 0) return;
+    if (circles.length === 0) {
+      logger.debug(`[${bot.username}] Katılabilecek circle bulunamadı`);
+      return;
+    }
     
     const circle = pickRandom(circles);
-    const result = await client.joinCircle(circle.id);
+    const result = await client.joinCircle(circle. id);
     
-    if (result.status === 'success') {
-      state. circle_id = circle.id;
-      botDb.updateState(bot.id, { circle_id:  circle.id });
+    if (result. status === 'success') {
+      state.circle_id = circle.id;
+      botDb.updateState(bot.id, { circle_id: circle.id });
       botDb.logActivity(bot.id, 'circle_join', 'circle', circle.id, true);
       logger.bot(bot.username, `Circle'a katıldı: "${circle.name}" 🎯`);
+    } else if (result.message?. includes('ayrılmalısınız') || result.message?.includes('already')) {
+      // Zaten bir circle'da - state'i güncelle
+      logger.debug(`[${bot.username}] Zaten bir circle'da`);
+      // API'den mevcut circle bilgisini çekebiliriz ama şimdilik atlayalım
     }
-  } catch (error: any) {
+  } catch (error:  any) {
     logger.debug(`[${bot.username}] Circle hatası: ${error. message}`);
   }
 }

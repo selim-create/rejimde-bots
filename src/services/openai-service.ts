@@ -16,7 +16,7 @@ const FALLBACK_COMMENT_REPLIES = [
   'Kesinlikle katılıyorum!  👍',
   'Çok doğru söylüyorsunuz.',
   'Ben de aynı şeyi düşünüyorum.',
-  'Güzel bir bakış açısı, teşekkürler! ',
+  'Güzel bir bakış açısı, teşekkürler!',
   'Evet, bence de öyle.',
 ];
 
@@ -25,7 +25,7 @@ export class OpenAIService {
   private isAvailable:  boolean = false;
 
   constructor() {
-    const apiKey = process. env.OPENAI_API_KEY;
+    const apiKey = process.env.OPENAI_API_KEY;
     if (apiKey && apiKey.startsWith('sk-')) {
       try {
         this. client = new OpenAI({ apiKey });
@@ -35,7 +35,7 @@ export class OpenAIService {
         logger.warn('OpenAI servisi başlatılamadı');
       }
     } else {
-      logger.warn('⚠️ OpenAI API key bulunamadı.  Fallback yorumlar kullanılacak.');
+      logger.warn('OpenAI API key bulunamadı.  Fallback yorumlar kullanılacak.');
     }
   }
 
@@ -49,8 +49,8 @@ export class OpenAIService {
         model: 'gpt-4o-mini',
         messages: [
           {
-            role:  'system',
-            content: `Sen bir sağlık ve fitness blogu okuyucususun. Türkçe yorum yazıyorsun. 
+            role: 'system',
+            content: `Sen bir sağlık ve fitness blogu okuyucususun.  Türkçe yorum yazıyorsun. 
 Kurallar:
 - Yorumlar 1-3 cümle olmalı
 - Samimi ve pozitif ol
@@ -62,7 +62,6 @@ Kurallar:
             role:  'user',
             content: `Blog başlığı: "${blogTitle}"
 Özet: ${excerpt. substring(0, 300)}...
-
 Bu blog için kısa bir yorum yaz. `
           }
         ],
@@ -89,7 +88,7 @@ Bu blog için kısa bir yorum yaz. `
           {
             role: 'system',
             content: `Sen bir sağlık ve fitness topluluğu üyesisin. Türkçe cevap yazıyorsun. 
-Kurallar:
+Kurallar: 
 - Cevaplar 1-2 cümle olmalı
 - Samimi ve destekleyici ol
 - Emoji kullanabilirsin (1 tane)`
@@ -98,7 +97,6 @@ Kurallar:
             role:  'user',
             content: `Orijinal yorum: "${originalComment}"
 ${context ? `Bağlam: ${context}` : ''}
-
 Bu yoruma kısa bir cevap yaz.`
           }
         ],
