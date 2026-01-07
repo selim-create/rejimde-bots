@@ -32,25 +32,25 @@ const FALLBACK_COMMENT_REPLIES = [
 ];
 
 const FALLBACK_DIET_COMMENTS = [
-  'Bu diyeti denedim, gerçekten işe yarıyor!  💪',
-  'Tarifler çok lezzetli ve doyurucu.',
-  'Kolay uygulanabilir bir program, tavsiye ederim.',
-  'İlk haftada fark görmeye başladım!',
-  'Çok dengeli bir program, memnunum.',
-  'Pratik ve uygulanabilir, teşekkürler.',
-  'Sonuçlardan memnunum.',
-  'Herkese tavsiye ederim.',
+  'Dengeli bir program gibi görünüyor.',
+  'Uygulanabilir görünüyor, denemeye değer.',
+  'Pratik öneriler var.',
+  'Mantıklı bir yaklaşım.',
+  'Denemeye değer görünüyor.',
+  'İşe yarar gibi duruyor.',
+  'Makul bir program.',
+  'Uygulanabilir.',
 ];
 
 const FALLBACK_EXERCISE_COMMENTS = [
-  'Harika bir antrenman programı!  🔥',
-  'Bu egzersizler gerçekten etkili.',
-  'Başlangıç seviyesi için ideal.',
-  'Düzenli yapınca sonuçları görmek mümkün.',
-  'Evde yapılabilir olması büyük avantaj!',
-  'Çok iyi bir program, teşekkürler.',
-  'Tam aradığım şeydi!',
-  'Etkili ve pratik.',
+  'Etkili görünüyor.',
+  'Pratik bir program.',
+  'Başlangıç için uygun gibi.',
+  'Evde yapılabilir olması güzel.',
+  'Denemeye değer.',
+  'Uygulanabilir.',
+  'Mantıklı hareketler var.',
+  'İşe yarar gibi.',
 ];
 
 // Yardımcı fonksiyon
@@ -119,14 +119,41 @@ ${WRITING_STYLE_PROMPTS[writingStyle]}
 ## YORUM TİPİN:
 ${COMMENT_TYPE_PROMPTS[commentType]}
 
+## TEMEL PRENSİPLER:
+🚫 ASLA YAPMA:
+- Uydurma kişisel sonuç veya deneyim yazma ("Bu diyeti uyguladım, 3 kilo verdim" ❌)
+- Tıbbi tavsiye, teşhis veya kesin hüküm verme
+- İçerikte verilmeyen detayları uydurma
+- Sürekli aynı kalıpları kullanma ("harika yazı", "süper içerik" ❌)
+
+✅ YAP:
+- Sadece verilen başlık ve özete dayan
+- İçerikten en az 1 somut noktaya değin
+- "Denemeye değer", "mantıklı görünüyor", "uygulanabilir" gibi yumuşak ifadeler kullan
+
+## YORUM UZUNLUĞU (ÇOK KRİTİK):
+Yorumlar her zaman uzun olmak zorunda DEĞİL. Varyasyonlar:
+- Çok kısa (2-5 kelime): "Gayet net anlatılmış."
+- Kısa tek cümle: "Özellikle kalori dengesi kısmı açıklayıcı olmuş."
+- 1-2 cümle: "Pratik öneriler güzel toparlanmış."
+- En fazla 3 cümle (NADİR)
+
+## YORUM TİPLERİ (RASTGELE SEÇ):
+1. Fayda Odaklı: "İşe yarar", "pratik", "uygulanabilir"
+2. Bilgi/İçgörü: "Şu konuyu net anlatmış"
+3. Kısa Özet: "Derli toplu", "net anlatım"
+4. Nazik Katkı: "Biraz daha örnek olsa iyi olurdu" (yumuşak)
+
+## EMOJİ KURALI:
+${emojiInstruction}
+- Bazı yorumda hiç emoji kullanma
+- Asla her yorumda emoji olmasın
+
 ## GENEL KURALLAR:
-- 1-3 cümle yaz (kısa ve öz)
 - İçerikle ALAKALI ol, genel geçer yorum yazma
 - Doğal ve gerçek bir insan gibi yaz
-- ${emojiInstruction}
 - Soru SORMA
-- "Harika yazı", "Süper içerik" gibi GENEL ifadelerden KAÇIN
-- İçerikteki SPECIFIC bir noktaya değin`;
+- İçerikteki SPECIFIC bir noktaya değin (eğer yeterli bilgi varsa)`;
 
       const userPrompt = `Blog: "${blogTitle}"
 İçerik özeti: ${excerpt.substring(0, 400)}
@@ -176,12 +203,27 @@ Bu blog için doğal bir yorum yaz.`;
 ## YAZIM STİLİN:
 ${WRITING_STYLE_PROMPTS[writingStyle]}
 
-## KURALLAR:
-- 1-2 cümle yaz
-- Orijinal yoruma yanıt ver
-- Katılıyorsan belirt, eklemek istediğin varsa ekle
-- ${emojiInstruction}
-- Doğal ve samimi ol`;
+## REPLY (YORUMA YANIT) ÖZELLİKLERİ:
+- 1-2 cümle (kısa ve öz)
+- Destekleyici, doğal
+- Önceki yanıtlarla aynı cümleyi kurma
+- Soru SORMA
+- Gerekirse sadece: "Katılıyorum." "Güzel tespit."
+
+## TEMEL PRENSİPLER:
+🚫 ASLA YAPMA:
+- Uydurma kişisel deneyim yazma
+- Tıbbi tavsiye veya kesin hüküm verme
+- Önceki yanıtları tekrar etme
+
+✅ YAP:
+- Yoruma katıl veya nazikçe farklı bakış açısı sun
+- Doğal ve samimi ol
+- Kısa ve öz tut
+
+## EMOJİ KURALI:
+${emojiInstruction}
+- Çoğu reply'de emoji olmasın`;
 
       const userPrompt = `${blogTitle ? `Blog konusu: "${blogTitle}"\n` : ''}
 Yanıt vereceğin yorum: "${originalComment}"
@@ -231,7 +273,7 @@ Bu yoruma kısa bir yanıt yaz.`;
         ? this.getEmojiInstruction(persona.emojiFrequency)
         : '1-2 emoji kullanabilirsin.';
 
-      const systemPrompt = `Sen bir diyet programını deneyen kullanıcısın. Türkçe değerlendirme yazıyorsun.
+      const systemPrompt = `Sen bir diyet programını değerlendiren kullanıcısın. Türkçe değerlendirme yazıyorsun.
 
 ## YAZIM STİLİN:
 ${WRITING_STYLE_PROMPTS[writingStyle]}
@@ -239,12 +281,26 @@ ${WRITING_STYLE_PROMPTS[writingStyle]}
 ## YORUM TİPİN:
 ${COMMENT_TYPE_PROMPTS[commentType]}
 
-## KURALLAR:
-- 1-3 cümle yaz
-- Sanki bu diyeti gerçekten denedin gibi yaz
-- Olumlu ama gerçekçi ol
-- ${emojiInstruction}
-- Spesifik bir şeyden bahset (tarifler, porsiyon, zorluk vs.)`;
+## TEMEL PRENSİPLER:
+🚫 ASLA YAPMA:
+- Uydurma kişisel sonuç veya deneyim yazma ("Bu diyeti uyguladım, 3 kilo verdim" ❌)
+- "İlk haftada fark görmeye başladım" gibi sahte deneyimler ❌
+- Tıbbi tavsiye, teşhis veya kesin hüküm verme
+- İçerikte verilmeyen detayları uydurma
+
+✅ YAP:
+- Sadece verilen başlığa ve genel değerlendirmeye dayan
+- "Denemeye değer", "mantıklı görünüyor", "uygulanabilir", "pratik" gibi yumuşak ifadeler kullan
+- Program hakkında genel izlenimler ver (zorluk, süre, uygulanabilirlik)
+
+## YORUM UZUNLUĞU:
+- Çok kısa (2-5 kelime): "Pratik görünüyor."
+- Kısa tek cümle: "Dengeli bir program gibi duruyor."
+- 1-2 cümle: "Uygulanabilir görünüyor. Denemeye değer."
+- En fazla 3 cümle (NADİR)
+
+## EMOJİ KURALI:
+${emojiInstruction}`;
 
       const userPrompt = `Diyet programı: "${dietTitle}"
 
@@ -292,7 +348,7 @@ Bu diyet programı için bir değerlendirme yaz.`;
         ? this.getEmojiInstruction(persona.emojiFrequency)
         : '1-2 emoji kullanabilirsin.';
 
-      const systemPrompt = `Sen bir egzersiz programını deneyen kullanıcısın. Türkçe değerlendirme yazıyorsun.
+      const systemPrompt = `Sen bir egzersiz programını değerlendiren kullanıcısın. Türkçe değerlendirme yazıyorsun.
 
 ## YAZIM STİLİN:
 ${WRITING_STYLE_PROMPTS[writingStyle]}
@@ -300,12 +356,26 @@ ${WRITING_STYLE_PROMPTS[writingStyle]}
 ## YORUM TİPİN:
 ${COMMENT_TYPE_PROMPTS[commentType]}
 
-## KURALLAR:
-- 1-3 cümle yaz
-- Sanki bu programı gerçekten denedin gibi yaz
-- Olumlu ama gerçekçi ol
-- ${emojiInstruction}
-- Spesifik bir şeyden bahset (zorluk, süre, etkili hareketler vs.)`;
+## TEMEL PRENSİPLER:
+🚫 ASLA YAPMA:
+- Uydurma kişisel sonuç veya deneyim yazma ("Bu programı uyguladım, harika sonuç aldım" ❌)
+- "İlk haftada kas kazandım" gibi sahte deneyimler ❌
+- Tıbbi tavsiye, teşhis veya kesin hüküm verme
+- İçerikte verilmeyen detayları uydurma
+
+✅ YAP:
+- Sadece verilen başlığa ve genel değerlendirmeye dayan
+- "Denemeye değer", "etkili görünüyor", "uygulanabilir", "pratik" gibi yumuşak ifadeler kullan
+- Program hakkında genel izlenimler ver (zorluk, süre, uygulanabilirlik)
+
+## YORUM UZUNLUĞU:
+- Çok kısa (2-5 kelime): "Etkili görünüyor."
+- Kısa tek cümle: "Evde yapılabilir, pratik."
+- 1-2 cümle: "Başlangıç için uygun. Denemeye değer."
+- En fazla 3 cümle (NADİR)
+
+## EMOJİ KURALI:
+${emojiInstruction}`;
 
       const userPrompt = `Egzersiz programı: "${exerciseTitle}"
 
