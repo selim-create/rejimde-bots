@@ -14,43 +14,81 @@ class BotDatabase {
   }
 
   private initTables() {
-    // Bots tablosu
-    this. db.exec(`
-      CREATE TABLE IF NOT EXISTS bots (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER UNIQUE NOT NULL,
-        username TEXT UNIQUE NOT NULL,
-        email TEXT UNIQUE NOT NULL,
-        password TEXT NOT NULL,
-        persona TEXT NOT NULL,
-        batch_id TEXT NOT NULL,
-        is_active INTEGER DEFAULT 1,
-        jwt_token TEXT,
-        token_expiry TEXT,
-        last_login TEXT,
-        current_streak INTEGER DEFAULT 0,
-        total_score INTEGER DEFAULT 0,
-        -- Yeni eklenen alanlar
-        gender TEXT,
-        height INTEGER,
-        current_weight REAL,
-        target_weight REAL,
-        goal TEXT,
-        activity_level TEXT,
-        location TEXT,
+    // Bots tablosu - varsa kontrol et
+    const tableExists = this.db. prepare(`
+      SELECT name FROM sqlite_master WHERE type='table' AND name='bots'
+    `).get();
 
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-      );
-      
-      CREATE INDEX IF NOT EXISTS idx_bots_persona ON bots(persona);
-      CREATE INDEX IF NOT EXISTS idx_bots_batch ON bots(batch_id);
-      CREATE INDEX IF NOT EXISTS idx_bots_active ON bots(is_active);
-      CREATE INDEX IF NOT EXISTS idx_bots_gender ON bots(gender);
-      CREATE INDEX IF NOT EXISTS idx_bots_goal ON bots(goal);
-    `);
+    if (!tableExists) {
+      // Tablo yoksa oluştur (yeni kolonlarla birlikte)
+      this.db.exec(`
+        CREATE TABLE bots (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER UNIQUE NOT NULL,
+          username TEXT UNIQUE NOT NULL,
+          email TEXT UNIQUE NOT NULL,
+          password TEXT NOT NULL,
+          persona TEXT NOT NULL,
+          batch_id TEXT NOT NULL,
+          is_active INTEGER DEFAULT 1,
+          jwt_token TEXT,
+          token_expiry TEXT,
+          last_login TEXT,
+          current_streak INTEGER DEFAULT 0,
+          total_score INTEGER DEFAULT 0,
+          gender TEXT,
+          height INTEGER,
+          current_weight REAL,
+          target_weight REAL,
+          goal TEXT,
+          activity_level TEXT,
+          location TEXT,
+          created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+        
+        CREATE INDEX idx_bots_persona ON bots(persona);
+        CREATE INDEX idx_bots_batch ON bots(batch_id);
+        CREATE INDEX idx_bots_active ON bots(is_active);
+        CREATE INDEX idx_bots_gender ON bots(gender);
+        CREATE INDEX idx_bots_goal ON bots(goal);
+      `);
+    } else {
+      // Tablo varsa, eksik kolonları ekle (migration)
+      const columns = this.db.prepare(`PRAGMA table_info(bots)`).all() as { name: string }[];
+      const columnNames = columns.map(c => c.name);
 
-    // Bot State tablosu (JSON stored arrays)
+      const migrations:  { column: string; definition: string }[] = [
+        { column: 'gender', definition: 'TEXT' },
+        { column: 'height', definition: 'INTEGER' },
+        { column: 'current_weight', definition: 'REAL' },
+        { column: 'target_weight', definition: 'REAL' },
+        { column: 'goal', definition: 'TEXT' },
+        { column: 'activity_level', definition: 'TEXT' },
+        { column: 'location', definition: 'TEXT' },
+      ];
+
+      for (const migration of migrations) {
+        if (!columnNames. includes(migration.column)) {
+          try {
+            this. db.exec(`ALTER TABLE bots ADD COLUMN ${migration.column} ${migration.definition}`);
+            console.log(`✅ Migration: ${migration.column} kolonu eklendi`);
+          } catch (e) {
+            // Kolon zaten varsa devam et
+          }
+        }
+      }
+
+      // İndeksleri oluştur (IF NOT EXISTS ile)
+      try {
+        this. db.exec(`CREATE INDEX IF NOT EXISTS idx_bots_gender ON bots(gender)`);
+        this.db.exec(`CREATE INDEX IF NOT EXISTS idx_bots_goal ON bots(goal)`);
+      } catch (e) {
+        // İndeks varsa devam et
+      }
+    }
+
+    // Bot State tablosu
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS bot_states (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -377,7 +415,85 @@ class BotDatabase {
     const result = this.db.prepare('DELETE FROM bots WHERE batch_id = ?').run(batchId);
     return result.changes;
   }
+  // ============ REPORT METHODS ============
 
+  getGenderStats(): { male: number; female: number } {
+    const maleResult = this.db. prepare(`
+      SELECT COUNT(*) as count FROM bots WHERE gender = 'male'
+    `).get() as { count: number } | undefined;
+    
+    const femaleResult = this.db.prepare(`
+      SELECT COUNT(*) as count FROM bots WHERE gender = 'female'
+    `).get() as { count: number } | undefined;
+    
+    return { 
+      male: maleResult?. count || 0, 
+      female:  femaleResult?.count || 0 
+    };
+  }
+
+  getGoalStats(): Record<string, number> {
+    const rows = this.db. prepare(`
+      SELECT goal, COUNT(*) as count FROM bots WHERE goal IS NOT NULL GROUP BY goal
+    `).all() as { goal: string; count: number }[];
+    
+    const result: Record<string, number> = {};
+    rows.forEach(r => {
+      if (r.goal) result[r.goal] = r.count;
+    });
+    return result;
+  }
+
+  getActivityLevelStats(): Record<string, number> {
+    const rows = this.db.prepare(`
+      SELECT activity_level, COUNT(*) as count FROM bots WHERE activity_level IS NOT NULL GROUP BY activity_level
+    `).all() as { activity_level: string; count: number }[];
+    
+    const result: Record<string, number> = {};
+    rows.forEach(r => {
+      if (r. activity_level) result[r.activity_level] = r. count;
+    });
+    return result;
+  }
+
+  getPhysicalStats(): { avgHeight: number; avgWeight: number; avgTargetWeight: number; avgBMI: number } {
+    const result = this.db.prepare(`
+      SELECT 
+        AVG(height) as avgHeight,
+        AVG(current_weight) as avgWeight,
+        AVG(target_weight) as avgTargetWeight,
+        AVG(current_weight / ((height / 100.0) * (height / 100.0))) as avgBMI
+      FROM bots
+      WHERE height > 0 AND current_weight > 0
+    `).get() as { avgHeight:  number; avgWeight:  number; avgTargetWeight: number; avgBMI: number } | undefined;
+    
+    return {
+      avgHeight:  result?.avgHeight || 0,
+      avgWeight: result?. avgWeight || 0,
+      avgTargetWeight: result?. avgTargetWeight || 0,
+      avgBMI:  result?.avgBMI || 0
+    };
+  }
+
+  getRecentBots(limit: number = 10): LocalBot[] {
+    return this.db.prepare(`
+      SELECT * FROM bots 
+      ORDER BY created_at DESC 
+      LIMIT ?
+    `).all(limit) as LocalBot[];
+  }
+
+  getLocationStats(): Record<string, number> {
+    const rows = this.db. prepare(`
+      SELECT location, COUNT(*) as count FROM bots WHERE location IS NOT NULL GROUP BY location ORDER BY count DESC LIMIT 10
+    `).all() as { location: string; count: number }[];
+    
+    const result: Record<string, number> = {};
+    rows.forEach(r => {
+      if (r. location) result[r.location] = r.count;
+    });
+    return result;
+  }
   close(): void {
     this.db.close();
   }

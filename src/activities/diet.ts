@@ -7,11 +7,11 @@ import { shouldPerform, pickRandom } from '../utils/random';
 
 export async function performDietActivities(
   bot: LocalBot,
-  state:  BotState,
+  state: BotState,
   client: RejimdeAPIClient,
   persona: PersonaConfig
 ): Promise<void> {
-  if (! persona) return;
+  if (!persona) return;
   
   // Aktif diyet varsa tamamlama kontrolü
   if (state.active_diet_id) {
@@ -28,13 +28,13 @@ export async function performDietActivities(
 
 async function startNewDiet(
   bot: LocalBot,
-  state:  BotState,
+  state: BotState,
   client: RejimdeAPIClient
 ): Promise<void> {
   try {
-    const diets = await client. getDiets({ limit:  30 });
+    const diets = await client.getDiets({ limit: 30 });
     const available = diets.filter((d: DietPlan) => 
-      ! state.started_diets.includes(d.id) && 
+      !state. started_diets.includes(d.id) && 
       !state. completed_diets.includes(d.id)
     );
     
@@ -45,20 +45,30 @@ async function startNewDiet(
     
     const diet = pickRandom(available);
     
-    const result = await client.startPlan(diet.id);
+    // Progress endpoint kullan
+    const result = await client.startDiet(diet.id);
     
     if (result.status === 'success') {
-      state. started_diets. push(diet.id);
+      state.started_diets.push(diet.id);
       state.active_diet_id = diet.id;
       botDb.updateState(bot.id, {
         started_diets: state.started_diets,
         active_diet_id: diet.id
       });
-      botDb. logActivity(bot. id, 'diet_start', 'diet', diet.id, true);
+      botDb.logActivity(bot.id, 'diet_start', 'diet', diet.id, true);
       logger.bot(bot.username, `Diyet başlatıldı: "${diet.title}"`);
+    } else if (result.message?.includes('already') || result.message?. includes('zaten')) {
+      // Zaten başlatılmış - state güncelle
+      state.started_diets.push(diet. id);
+      state.active_diet_id = diet.id;
+      botDb.updateState(bot.id, {
+        started_diets: state.started_diets,
+        active_diet_id: diet.id
+      });
+      logger.debug(`[${bot.username}] Diyet zaten başlatılmış: ${diet.id}`);
     }
   } catch (error: any) {
-    logger.debug(`[${bot.username}] Diyet başlatma hatası: ${error. message}`);
+    logger.debug(`[${bot.username}] Diyet başlatma hatası: ${error.message}`);
   }
 }
 
@@ -71,7 +81,9 @@ async function completeDiet(
     if (! state.active_diet_id) return;
     
     const dietId = state.active_diet_id;
-    const result = await client.completePlan(dietId);
+    
+    // Progress endpoint kullan
+    const result = await client.completeDiet(dietId);
     
     if (result.status === 'success') {
       state. completed_diets. push(dietId);
@@ -81,9 +93,22 @@ async function completeDiet(
         active_diet_id: null
       });
       botDb.logActivity(bot.id, 'diet_complete', 'diet', dietId, true);
-      logger.bot(bot.username, `Diyet tamamlandı!  🎉`);
+      
+      const points = (result.data as any)?.reward_points || (result.data as any)?.points_earned || 0;
+      logger.bot(bot.username, `Diyet tamamlandı!  🎉 +${points} puan`);
+    } else if (result. message?.includes('already') || result.message?.includes('zaten')) {
+      // Zaten tamamlanmış
+      state.completed_diets.push(dietId);
+      state.active_diet_id = null;
+      botDb. updateState(bot. id, {
+        completed_diets:  state.completed_diets,
+        active_diet_id:  null
+      });
+      logger.debug(`[${bot.username}] Diyet zaten tamamlanmış: ${dietId}`);
+    } else {
+      logger.debug(`[${bot.username}] Diyet tamamlanamadı: ${result.message}`);
     }
   } catch (error: any) {
-    logger. debug(`[${bot.username}] Diyet tamamlama hatası: ${error.message}`);
+    logger.debug(`[${bot.username}] Diyet tamamlama hatası: ${error.message}`);
   }
 }

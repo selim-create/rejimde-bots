@@ -37,12 +37,12 @@ export type BotUserProfile = BotUser;
 
 // Local DB'de tutulan bot
 export interface LocalBot {
-  id:  number;
+  id: number;
   user_id: number;
   username: string;
   email: string;
   password: string;
-  persona: PersonaType;
+  persona:  PersonaType;
   batch_id: string;
   is_active: number;
   jwt_token: string | null;
@@ -52,6 +52,15 @@ export interface LocalBot {
   total_score: number;
   created_at: string;
   updated_at: string;
+  
+  // Yeni eklenen alanlar (database'de var)
+  gender?: string;
+  height?: number;
+  current_weight?: number;
+  target_weight?: number;
+  goal?: string;
+  activity_level?: string;
+  location?: string;
 }
 
 // Bot State

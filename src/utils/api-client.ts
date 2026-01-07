@@ -384,7 +384,87 @@ export class RejimdeAPIClient {
       };
     }
   }
+  // ============ PROGRESS ENDPOINTS ============
 
+  async claimBlogReward(blogId: number): Promise<ApiResponse> {
+    try {
+      const response = await this.client.post(
+        `/rejimde/v1/progress/blog/${blogId}/claim`,
+        {},
+        { headers:  this.getAuthHeaders() }
+      );
+      return response. data;
+    } catch (error: any) {
+      return {
+        status:  'error',
+        message: error. response?.data?.message || error.message,
+      };
+    }
+  }
+
+  async startDiet(dietId: number): Promise<ApiResponse> {
+    try {
+      const response = await this.client.post(
+        `/rejimde/v1/progress/diet/${dietId}/start`,
+        {},
+        { headers: this.getAuthHeaders() }
+      );
+      return response.data;
+    } catch (error: any) {
+      return {
+        status: 'error',
+        message:  error.response?.data?.message || error. message,
+      };
+    }
+  }
+
+  async completeDiet(dietId: number): Promise<ApiResponse> {
+    try {
+      const response = await this.client.post(
+        `/rejimde/v1/progress/diet/${dietId}/complete`,
+        {},
+        { headers: this.getAuthHeaders() }
+      );
+      return response.data;
+    } catch (error: any) {
+      return {
+        status: 'error',
+        message:  error.response?.data?.message || error. message,
+      };
+    }
+  }
+
+  async startExerciseProgress(exerciseId: number): Promise<ApiResponse> {
+    try {
+      const response = await this.client.post(
+        `/rejimde/v1/progress/exercise/${exerciseId}/start`,
+        {},
+        { headers: this. getAuthHeaders() }
+      );
+      return response.data;
+    } catch (error: any) {
+      return {
+        status: 'error',
+        message: error.response?. data?.message || error.message,
+      };
+    }
+  }
+
+  async completeExerciseProgress(exerciseId: number): Promise<ApiResponse> {
+    try {
+      const response = await this.client.post(
+        `/rejimde/v1/progress/exercise/${exerciseId}/complete`,
+        {},
+        { headers: this. getAuthHeaders() }
+      );
+      return response.data;
+    } catch (error: any) {
+      return {
+        status: 'error',
+        message: error.response?. data?.message || error.message,
+      };
+    }
+  }
   // ============ EXPERTS ============
 
   async getExperts(options?: { limit?: number }): Promise<Expert[]> {
