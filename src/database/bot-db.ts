@@ -641,13 +641,14 @@ class BotDatabase {
       }
 
       // Sayacı artır
-      this.db.prepare(`
+      const updateResult = this.db.prepare(`
         UPDATE global_limits 
         SET diets_created = diets_created + 1, updated_at = CURRENT_TIMESTAMP
         WHERE date = ? AND diets_created < ?
       `).run(date, limit);
       
-      return true;
+      // UPDATE başarısız olduysa (0 satır etkilendi), başka bir transaction kapmış demektir
+      return updateResult.changes === 1;
     });
 
     return transaction();
@@ -691,13 +692,14 @@ class BotDatabase {
       }
 
       // Sayacı artır
-      this.db.prepare(`
+      const updateResult = this.db.prepare(`
         UPDATE global_limits 
         SET exercises_created = exercises_created + 1, updated_at = CURRENT_TIMESTAMP
         WHERE date = ? AND exercises_created < ?
       `).run(date, limit);
       
-      return true;
+      // UPDATE başarısız olduysa (0 satır etkilendi), başka bir transaction kapmış demektir
+      return updateResult.changes === 1;
     });
 
     return transaction();
