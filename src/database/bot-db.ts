@@ -110,6 +110,19 @@ class BotDatabase {
       );
     `);
 
+    // Bot State tablosu migration - replied_comments kolonu ekle
+    try {
+      const stateColumns = this.db.prepare(`PRAGMA table_info(bot_states)`).all() as { name: string }[];
+      const stateColumnNames = stateColumns.map(c => c.name);
+      
+      if (!stateColumnNames.includes('replied_comments')) {
+        this.db.exec(`ALTER TABLE bot_states ADD COLUMN replied_comments TEXT DEFAULT '[]'`);
+        console.log('✅ Migration: replied_comments kolonu eklendi');
+      }
+    } catch (e) {
+      // Kolon zaten varsa veya hata varsa devam et
+    }
+
     // Activity Logs tablosu
     this.db. exec(`
       CREATE TABLE IF NOT EXISTS activity_logs (
