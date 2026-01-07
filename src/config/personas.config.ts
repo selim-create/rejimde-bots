@@ -61,7 +61,7 @@ export const PERSONA_CONFIGS: Record<PersonaType, PersonaConfig> = {
       likeComments: 0.60,
       expertVisit: 0.30,
       calculatorUse: 0.25,
-      replyToComments: 0.20
+      replyToComments: 0.25
     },
     // YENİ
     writingStyles: ['enthusiastic', 'storyteller', 'supportive', 'casual'],
@@ -216,7 +216,7 @@ export const PERSONA_CONFIGS: Record<PersonaType, PersonaConfig> = {
       likeComments:  0.30,
       expertVisit: 0.25,
       calculatorUse: 0.40,
-      replyToComments: 0.08
+      replyToComments: 0.15
     },
     // YENİ
     writingStyles: ['analytical', 'storyteller', 'formal'],
@@ -247,7 +247,7 @@ export const PERSONA_CONFIGS: Record<PersonaType, PersonaConfig> = {
       likeComments: 0.25,
       expertVisit: 0.15,
       calculatorUse: 0.30,
-      replyToComments: 0.05
+      replyToComments: 0.15
     },
     // YENİ
     writingStyles: ['enthusiastic', 'supportive', 'gen_z', 'casual'],

@@ -285,6 +285,78 @@ async function performBlogActivities(
       logger.debug(`[${bot.username}] Yorum hatası: ${error.message}`);
     }
   }
+
+  // Yorumlara cevap (AI)
+  if (persona.aiEnabled && shouldPerform(persona.behaviors.replyToComments)) {
+    try {
+      logger.debug(`[${bot.username}] Reply aktivitesi başlıyor...`);
+      
+      const blogs = await client.getBlogs({ limit: 10 });
+      if (blogs.length === 0) {
+        logger.debug(`[${bot.username}] Hiç blog bulunamadı`);
+        return;
+      }
+
+      const blog = pickRandom(blogs);
+      logger.debug(`[${bot.username}] Blog seçildi: ${blog.id} - "${blog.title}"`);
+      
+      const comments = await client.getComments(blog.id);
+      logger.debug(`[${bot.username}] ${comments.length} yorum bulundu`);
+
+      // Henüz cevap verilmemiş ana yorumlar (parent === 0)
+      const ROOT_COMMENT_PARENT_ID = 0;
+      const replyableComments = comments.filter((c: any) => 
+        !state.replied_comments.includes(c.id) &&
+        c.parent === ROOT_COMMENT_PARENT_ID
+      );
+
+      logger.debug(`[${bot.username}] ${replyableComments.length} cevap verilebilir ana yorum var`);
+
+      if (replyableComments.length === 0) {
+        logger.debug(`[${bot.username}] Cevap verilebilecek yorum kalmadı`);
+        return;
+      }
+
+      const parentComment = pickRandom(replyableComments);
+      logger.debug(`[${bot.username}] Ana yorum seçildi: ${parentComment.id} - "${parentComment.content.substring(0, 50)}..."`);
+
+      // Thread context: Önceki cevapları al
+      const previousReplies = comments
+        .filter((c: any) => c.parent === parentComment.id)
+        .map((c: any) => c.content);
+
+      logger.debug(`[${bot.username}] Bu yorumda ${previousReplies.length} önceki cevap var`);
+
+      const reply = await openai.generateCommentReply(
+        parentComment.content,
+        previousReplies,
+        blog.title,
+        persona
+      );
+
+      logger.debug(`[${bot.username}] Reply oluşturuldu: "${reply.substring(0, 50)}..."`);
+
+      const result = await client.createComment({
+        post: blog.id,
+        content: reply,
+        parent: parentComment.id,
+        context: 'blog'
+      });
+
+      logger.debug(`[${bot.username}] Reply gönderildi, sonuç: ${result.status}`);
+
+      if (result.status === 'success') {
+        state.replied_comments.push(parentComment.id);
+        botDb.updateState(bot.id, { replied_comments: state.replied_comments });
+        botDb.logActivity(bot.id, 'comment_reply', 'comment', parentComment.id, true);
+        logger.bot(bot.username, `Yoruma cevap: "${reply.substring(0, 40)}..."`);
+      } else {
+        logger.debug(`[${bot.username}] Reply hatası: ${result.message}`);
+      }
+    } catch (error: any) {
+      logger.debug(`[${bot.username}] Reply aktivitesi hatası: ${error.message}`);
+    }
+  }
 }
 
 // ============ DIET ============
