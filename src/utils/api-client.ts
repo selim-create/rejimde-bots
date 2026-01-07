@@ -325,9 +325,12 @@ export class RejimdeAPIClient {
       );
       return response.data;
     } catch (error: any) {
+      const errorMsg = error.response?.data?.message || error.message;
+      const status = error.response?.status;
+      logger.debug(`Comment creation failed [${status}]: ${errorMsg}`);
       return {
         status: 'error',
-        message: error.response?. data?.message || error.message,
+        message: errorMsg,
       };
     }
   }
@@ -426,6 +429,18 @@ export class RejimdeAPIClient {
     }
   }
 
+  async getMyCircle(): Promise<Circle | null> {
+    try {
+      const response = await this.client.get(
+        '/rejimde/v1/circles/my-circle',
+        { headers: this.getAuthHeaders() }
+      );
+      return response.data.data || response.data;
+    } catch (error) {
+      return null;
+    }
+  }
+
   // ============ EXPERTS ============
 
   async getExperts(options?: { limit?: number }): Promise<Expert[]> {
@@ -441,17 +456,17 @@ export class RejimdeAPIClient {
     }
   }
 
-  async trackProfileView(expertSlug: string, sessionId: string): Promise<ApiResponse> {
+  async trackProfileView(expertId: number, sessionId: string): Promise<ApiResponse> {
     try {
       const response = await this.client.post('/rejimde/v1/profile-views/track', {
-        expert_slug:  expertSlug,
-        session_id:  sessionId,
+        expert_id: expertId,
+        session_id: sessionId,
       });
       return response.data;
-    } catch (error:  any) {
+    } catch (error: any) {
       return {
         status: 'error',
-        message: error.response?.data?. message || error.message,
+        message: error.response?.data?.message || error.message,
       };
     }
   }

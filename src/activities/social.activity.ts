@@ -125,9 +125,14 @@ async function joinCircle(
       botDb.logActivity(bot.id, 'circle_join', 'circle', circle.id, true);
       logger.bot(bot.username, `Circle'a katıldı: "${circle.name}" 🎯`);
     } else if (result.message?. includes('ayrılmalısınız') || result.message?.includes('already')) {
-      // Zaten bir circle'da - state'i güncelle
-      logger.debug(`[${bot.username}] Zaten bir circle'da`);
-      // API'den mevcut circle bilgisini çekebiliriz ama şimdilik atlayalım
+      // Zaten bir circle'da - API'den mevcut circle bilgisini çek ve state'i güncelle
+      logger.debug(`[${bot.username}] Zaten bir circle'da, state senkronize ediliyor...`);
+      const myCircle = await client.getMyCircle();
+      if (myCircle) {
+        state.circle_id = myCircle.id;
+        botDb.updateState(bot.id, { circle_id: myCircle.id });
+        logger.debug(`[${bot.username}] Circle state güncellendi: ${myCircle.name} (${myCircle.id})`);
+      }
     }
   } catch (error:  any) {
     logger.debug(`[${bot.username}] Circle hatası: ${error. message}`);
@@ -147,7 +152,7 @@ async function visitExpertProfile(
     const expert = pickRandom(experts);
     const sessionId = `bot_${bot.id}_${Date.now()}`;
     
-    await client.trackProfileView(expert. slug, sessionId);
+    await client.trackProfileView(expert.id, sessionId);
     botDb.logActivity(bot.id, 'expert_visit', 'expert', expert.id, true);
     logger.debug(`[${bot.username}] Uzman ziyaret edildi: ${expert.name}`);
     
