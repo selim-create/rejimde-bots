@@ -14,6 +14,9 @@ import { OpenAIService } from '../services/openai.service';
 // Ayarlar
 const DELAY_BETWEEN_BOTS = 3000;
 const DELAY_BETWEEN_ACTIONS = 800;
+const REVIEW_PROBABILITY = 0.6;
+const MIN_REVIEW_RATING = 4;
+const MAX_REVIEW_RATING = 5;
 
 interface DailyStats {
   processed: number;
@@ -273,14 +276,14 @@ async function performDietActivities(
         id => !state.reviewed_diets.includes(id)
       );
       
-      if (completedNotReviewed.length > 0 && shouldPerform(0.6)) {
+      if (completedNotReviewed.length > 0 && shouldPerform(REVIEW_PROBABILITY)) {
         const dietId = pickRandom(completedNotReviewed);
         const diets = await client.getDiets({ limit: 100 });
         const diet = diets.find(d => d.id === dietId);
         
         if (diet) {
           const comment = await openai.generateDietComment(diet.title, diet.slug);
-          const rating = randomInt(4, 5); // 4 veya 5 yıldız
+          const rating = randomInt(MIN_REVIEW_RATING, MAX_REVIEW_RATING);
           
           const result = await client.createComment({
             post: dietId,
@@ -368,14 +371,14 @@ async function performExerciseActivities(
         id => !state.reviewed_exercises.includes(id)
       );
       
-      if (completedNotReviewed.length > 0 && shouldPerform(0.6)) {
+      if (completedNotReviewed.length > 0 && shouldPerform(REVIEW_PROBABILITY)) {
         const exerciseId = pickRandom(completedNotReviewed);
         const exercises = await client.getExercises({ limit: 100 });
         const exercise = exercises.find(e => e.id === exerciseId);
         
         if (exercise) {
           const comment = await openai.generateExerciseComment(exercise.title, exercise.slug);
-          const rating = randomInt(4, 5); // 4 veya 5 yıldız
+          const rating = randomInt(MIN_REVIEW_RATING, MAX_REVIEW_RATING);
           
           const result = await client.createComment({
             post: exerciseId,

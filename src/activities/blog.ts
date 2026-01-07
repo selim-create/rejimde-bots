@@ -7,6 +7,8 @@ import { logger } from '../utils/logger';
 import { shouldPerform, pickRandom } from '../utils/random';
 import { PersonaType } from '../types';
 
+const ROOT_COMMENT_PARENT_ID = 0;
+
 export async function performBlogActivities(
   bot: LocalBot,
   state: BotState,
@@ -160,7 +162,7 @@ async function replyToComment(
     // Henüz cevap verilmemiş yorumlar
     const replyable = comments.filter((c: Comment) => 
       !state.replied_comments.includes(c.id) &&
-      c.parent === 0 // Ana yorumlar
+      c.parent === ROOT_COMMENT_PARENT_ID // Ana yorumlar
     );
     
     if (replyable.length === 0) return;
