@@ -117,10 +117,10 @@ class BotDatabase {
       
       if (!stateColumnNames.includes('replied_comments')) {
         this.db.exec(`ALTER TABLE bot_states ADD COLUMN replied_comments TEXT DEFAULT '[]'`);
-        console.log('✅ Migration: replied_comments kolonu eklendi');
+        // Migration başarılı - ileride logger eklenebilir
       }
     } catch (e) {
-      // Kolon zaten varsa veya hata varsa devam et
+      // Kolon zaten varsa veya tablo yoksa (yeni kurulum) devam et
     }
 
     // Activity Logs tablosu
