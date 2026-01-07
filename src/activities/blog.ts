@@ -160,14 +160,23 @@ async function replyToComment(
     // Henüz cevap verilmemiş yorumlar
     const replyable = comments.filter((c: Comment) => 
       !state.replied_comments.includes(c.id) &&
-      (c.reply_count === 0 || c.reply_count === undefined)
+      c.parent === 0 // Ana yorumlar
     );
     
     if (replyable.length === 0) return;
     
     const parentComment = pickRandom(replyable);
     
-    const reply = await openai. generateCommentReply(parentComment.content, blog.title);
+    // Thread context: Önceki cevapları al
+    const previousReplies = comments
+      .filter((c: Comment) => c.parent === parentComment.id)
+      .map((c: Comment) => c.content);
+    
+    const reply = await openai.generateCommentReply(
+      parentComment.content,
+      previousReplies,
+      blog.title
+    );
     
     const result = await client.createComment({
       post:  blog.id,

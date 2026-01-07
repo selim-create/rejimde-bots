@@ -99,30 +99,48 @@ Bu blog için kısa bir yorum yaz. `
     }
   }
 
-  async generateCommentReply(originalComment: string, context?:  string): Promise<string> {
+  async generateCommentReply(
+    originalComment: string, 
+    previousReplies: string[] = [],
+    blogTitle?: string
+  ): Promise<string> {
     if (!this.isAvailable || !this. client) {
       return this.pickFallback(FALLBACK_COMMENT_REPLIES);
     }
 
     try {
+      // Thread context oluştur
+      let contextText = `Orijinal yorum: "${originalComment}"`;
+      
+      if (previousReplies.length > 0) {
+        contextText += '\n\nÖnceki cevaplar:\n';
+        previousReplies.forEach((reply, i) => {
+          contextText += `${i + 1}. "${reply}"\n`;
+        });
+      }
+      
+      if (blogTitle) {
+        contextText += `\nBlog başlığı: "${blogTitle}"`;
+      }
+      
       const response = await this.client. chat.completions. create({
         model: 'gpt-4o-mini',
         messages:  [
           {
             role: 'system',
             content: `Sen bir sağlık ve fitness topluluğu üyesisin. Türkçe cevap yazıyorsun. 
-
+            
 Kurallar:
 - Cevaplar 1-2 cümle olmalı
 - Samimi ve destekleyici ol
-- Orijinal yoruma uygun cevap ver
+- Orijinal yoruma ve önceki cevaplara uygun, doğal bir dialog oluştur
 - Emoji kullanabilirsin (1 tane)
+- Tekrara düşme, önceki cevaplardan farklı bir bakış açısı sun
 - Doğal bir dil kullan`
           },
           {
             role:  'user',
-            content: `Orijinal yorum: "${originalComment}"
-${context ? `Bağlam: ${context}` : ''}
+            content: `${contextText}
 
 Bu yoruma kısa bir cevap yaz.`
           }

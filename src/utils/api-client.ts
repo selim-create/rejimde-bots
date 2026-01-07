@@ -315,6 +315,7 @@ export class RejimdeAPIClient {
     content: string;
     parent?: number;
     rating?: number;
+    context?: string;
   }): Promise<ApiResponse> {
     try {
       const response = await this.client. post(

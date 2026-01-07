@@ -80,11 +80,11 @@ async function runDailyActivities() {
       await delay(DELAY_BETWEEN_ACTIONS);
 
       // 3. Diyet aktiviteleri
-      await performDietActivities(bot, state, client, persona);
+      await performDietActivities(bot, state, client, persona, openai);
       await delay(DELAY_BETWEEN_ACTIONS);
 
       // 4. Egzersiz aktiviteleri
-      await performExerciseActivities(bot, state, client, persona);
+      await performExerciseActivities(bot, state, client, persona, openai);
       await delay(DELAY_BETWEEN_ACTIONS);
 
       // 5. Sosyal aktiviteler
@@ -263,8 +263,46 @@ async function performDietActivities(
   bot:  LocalBot,
   state: BotState,
   client:  RejimdeAPIClient,
-  persona: typeof PERSONA_CONFIGS[PersonaType]
+  persona: typeof PERSONA_CONFIGS[PersonaType],
+  openai: OpenAIService
 ): Promise<void> {
+  // Tamamlanmış diyetleri değerlendir (sadece 1 kez)
+  if (persona.aiEnabled) {
+    try {
+      const completedNotReviewed = state.completed_diets.filter(
+        id => !state.reviewed_diets.includes(id)
+      );
+      
+      if (completedNotReviewed.length > 0 && shouldPerform(0.6)) {
+        const dietId = pickRandom(completedNotReviewed);
+        const diets = await client.getDiets({ limit: 100 });
+        const diet = diets.find(d => d.id === dietId);
+        
+        if (diet) {
+          const comment = await openai.generateDietComment(diet.title, diet.slug);
+          const rating = randomInt(4, 5); // 4 veya 5 yıldız
+          
+          const result = await client.createComment({
+            post: dietId,
+            content: comment,
+            rating: rating,
+            context: 'diet'
+          });
+          
+          if (result.status === 'success') {
+            state.reviewed_diets.push(dietId);
+            botDb.updateState(bot.id, { reviewed_diets: state.reviewed_diets });
+            botDb.logActivity(bot.id, 'diet_review', 'diet', dietId, true);
+            logger.bot(bot.username, `Diyet değerlendirmesi yapıldı: "${comment.substring(0, 40)}..." (${rating}⭐)`);
+          }
+        }
+      }
+    } catch (error: any) {
+      logger.debug(`[${bot.username}] Diyet değerlendirme hatası: ${error.message}`);
+    }
+    await delay(500);
+  }
+  
   if (state.active_diet_id) {
     if (shouldPerform(persona.behaviors.dietComplete)) {
       try {
@@ -320,8 +358,46 @@ async function performExerciseActivities(
   bot:  LocalBot,
   state: BotState,
   client:  RejimdeAPIClient,
-  persona: typeof PERSONA_CONFIGS[PersonaType]
+  persona: typeof PERSONA_CONFIGS[PersonaType],
+  openai: OpenAIService
 ): Promise<void> {
+  // Tamamlanmış egzersizleri değerlendir (sadece 1 kez)
+  if (persona.aiEnabled) {
+    try {
+      const completedNotReviewed = state.completed_exercises.filter(
+        id => !state.reviewed_exercises.includes(id)
+      );
+      
+      if (completedNotReviewed.length > 0 && shouldPerform(0.6)) {
+        const exerciseId = pickRandom(completedNotReviewed);
+        const exercises = await client.getExercises({ limit: 100 });
+        const exercise = exercises.find(e => e.id === exerciseId);
+        
+        if (exercise) {
+          const comment = await openai.generateExerciseComment(exercise.title, exercise.slug);
+          const rating = randomInt(4, 5); // 4 veya 5 yıldız
+          
+          const result = await client.createComment({
+            post: exerciseId,
+            content: comment,
+            rating: rating,
+            context: 'exercise'
+          });
+          
+          if (result.status === 'success') {
+            state.reviewed_exercises.push(exerciseId);
+            botDb.updateState(bot.id, { reviewed_exercises: state.reviewed_exercises });
+            botDb.logActivity(bot.id, 'exercise_review', 'exercise', exerciseId, true);
+            logger.bot(bot.username, `Egzersiz değerlendirmesi yapıldı: "${comment.substring(0, 40)}..." (${rating}⭐)`);
+          }
+        }
+      }
+    } catch (error: any) {
+      logger.debug(`[${bot.username}] Egzersiz değerlendirme hatası: ${error.message}`);
+    }
+    await delay(500);
+  }
+  
   if (state. active_exercise_id) {
     if (shouldPerform(persona.behaviors.exerciseComplete)) {
       try {

@@ -68,8 +68,10 @@ export interface BotState {
   bot_id: number;
   started_diets: number[];
   completed_diets: number[];
+  reviewed_diets: number[];
   started_exercises:  number[];
   completed_exercises: number[];
+  reviewed_exercises: number[];
   followed_users: number[];
   read_blogs: number[];
   commented_posts: number[];
