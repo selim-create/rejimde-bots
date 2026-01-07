@@ -437,6 +437,7 @@ export class RejimdeAPIClient {
       );
       return response.data.data || response.data;
     } catch (error) {
+      logger.debug('Failed to fetch user circle');
       return null;
     }
   }

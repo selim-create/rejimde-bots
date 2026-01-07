@@ -512,6 +512,7 @@ async function performSocialActivities(
           logger.bot(bot. username, `Circle'a katıldı:  "${circle.name}" 🎯`);
         } else if (result.message?.includes('ayrılmalısınız') || result.message?.includes('already')) {
           // Zaten bir circle'da - API'den mevcut circle bilgisini çek ve state'i güncelle
+          // Note: API returns error messages without specific codes, so we match on message content
           logger.debug(`[${bot.username}] Zaten bir circle'da, state senkronize ediliyor...`);
           const myCircle = await client.getMyCircle();
           if (myCircle) {
