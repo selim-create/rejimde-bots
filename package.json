@@ -24,7 +24,8 @@
     "report": "ts-node src/scripts/report.ts",
     "test-api": "ts-node src/scripts/test-api.ts",
     "test-generator": "ts-node src/scripts/test-generator.ts",
-    "test-db": "ts-node src/scripts/test-db.ts"
+    "test-db": "ts-node src/scripts/test-db.ts",
+    "test-global-limits": "ts-node src/scripts/test-global-limits.ts"
   },
   "keywords":  ["rejimde", "bots", "simulation"],
   "author": "",
