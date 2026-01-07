@@ -176,15 +176,20 @@ async function performBlogActivities(
 
       if (unread.length > 0) {
         const blog = pickRandom(unread);
-        const result = await client. dispatchEvent('blog_points_claimed', 'blog', blog. id, {
-          is_sticky: blog.is_sticky,
-        });
+        const result = await client.claimBlogReward(blog.id);
 
         if (result.status === 'success') {
           state.read_blogs. push(blog.id);
           botDb.updateState(bot.id, { read_blogs: state.read_blogs });
           botDb.logActivity(bot.id, 'blog_read', 'blog', blog. id, true);
           logger.bot(bot.username, `Blog okundu: "${blog.title. substring(0, 30)}..."`);
+        } else {
+          // Zaten okunmuş olabilir - yine de state'e ekle
+          if (result.message?.includes('already') || result.message?.includes('zaten')) {
+            state.read_blogs.push(blog.id);
+            botDb.updateState(bot.id, { read_blogs: state.read_blogs });
+            logger.debug(`[${bot.username}] Blog zaten okunmuş: ${blog.id}`);
+          }
         }
       }
     } catch (error:  any) {
@@ -321,7 +326,7 @@ async function performExerciseActivities(
     if (shouldPerform(persona.behaviors.exerciseComplete)) {
       try {
         const exerciseId = state.active_exercise_id;
-        const result = await client.completeExercise(exerciseId);
+        const result = await client.completeExerciseProgress(exerciseId);
         if (result. status === 'success') {
           state.completed_exercises. push(exerciseId);
           state.active_exercise_id = null;
