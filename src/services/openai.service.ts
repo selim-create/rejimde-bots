@@ -1,7 +1,10 @@
 import OpenAI from 'openai';
 import { logger } from '../utils/logger';
+import { PersonaConfig } from '../config/personas.config';
+import { WritingStyle, WRITING_STYLE_PROMPTS } from '../config/writing-styles.config';
+import { CommentType, COMMENT_TYPE_PROMPTS, CONTENT_TYPE_COMMENT_MAPPING } from '../config/comment-prompts.config';
 
-// Fallback yorumlar
+// Fallback yorumlar - daha fazla varyasyon
 const FALLBACK_BLOG_COMMENTS = [
   'Çok faydalı bir yazı olmuş, teşekkürler!  👏',
   'Bu bilgileri arıyordum, harika paylaşım! ',
@@ -10,7 +13,11 @@ const FALLBACK_BLOG_COMMENTS = [
   'Bu konuda tam da böyle bir yazıya ihtiyacım vardı.',
   'Paylaşım için teşekkürler, çok işime yaradı!',
   'Süper bir yazı, kaydettim 📌',
-  'Bu bilgiler gerçekten çok değerli, teşekkürler.',
+  'Bu bilgiler gerçekten çok değerli.',
+  'Harika içerik, teşekkürler.',
+  'Çok bilgilendirici olmuş.',
+  'Bunu bekliyordum, elinize sağlık!',
+  'Net ve anlaşılır anlatım, tebrikler.',
 ];
 
 const FALLBACK_COMMENT_REPLIES = [
@@ -19,14 +26,20 @@ const FALLBACK_COMMENT_REPLIES = [
   'Ben de aynı şeyi düşünüyorum.',
   'Güzel bir bakış açısı, teşekkürler!',
   'Evet, bence de öyle.',
+  'Aynen, ben de öyle düşünüyorum.',
+  'Haklısınız.',
+  'Doğru tespit!',
 ];
 
 const FALLBACK_DIET_COMMENTS = [
   'Bu diyeti denedim, gerçekten işe yarıyor!  💪',
   'Tarifler çok lezzetli ve doyurucu.',
   'Kolay uygulanabilir bir program, tavsiye ederim.',
-  'İlk haftada fark görmeye başladım bile! ',
+  'İlk haftada fark görmeye başladım!',
   'Çok dengeli bir program, memnunum.',
+  'Pratik ve uygulanabilir, teşekkürler.',
+  'Sonuçlardan memnunum.',
+  'Herkese tavsiye ederim.',
 ];
 
 const FALLBACK_EXERCISE_COMMENTS = [
@@ -35,7 +48,15 @@ const FALLBACK_EXERCISE_COMMENTS = [
   'Başlangıç seviyesi için ideal.',
   'Düzenli yapınca sonuçları görmek mümkün.',
   'Evde yapılabilir olması büyük avantaj!',
+  'Çok iyi bir program, teşekkürler.',
+  'Tam aradığım şeydi!',
+  'Etkili ve pratik.',
 ];
+
+// Yardımcı fonksiyon
+function pickRandom<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
 
 export class OpenAIService {
   private client: OpenAI | null = null;
@@ -56,45 +77,77 @@ export class OpenAIService {
     }
   }
 
-  async generateBlogComment(blogTitle: string, excerpt: string): Promise<string> {
+  private getEmojiInstruction(frequency: 'none' | 'low' | 'medium' | 'high'): string {
+    switch (frequency) {
+      case 'none': return 'Emoji KULLANMA.';
+      case 'low': return 'Emoji kullanma veya en fazla 1 tane kullan.';
+      case 'medium': return '1-2 emoji kullanabilirsin.';
+      case 'high': return '2-3 emoji kullanabilirsin 🎉💪';
+      default: return '1 emoji kullanabilirsin.';
+    }
+  }
+
+  async generateBlogComment(
+    blogTitle: string, 
+    excerpt: string,
+    persona?: PersonaConfig
+  ): Promise<string> {
     if (!this.isAvailable || !this.client) {
       return this.pickFallback(FALLBACK_BLOG_COMMENTS);
     }
 
     try {
+      // Persona varsa stil ve tip seç, yoksa default
+      const writingStyle = persona 
+        ? pickRandom(persona.writingStyles) 
+        : 'casual' as WritingStyle;
+      
+      const availableTypes = CONTENT_TYPE_COMMENT_MAPPING['blog'];
+      const preferredTypes = persona?.preferredCommentTypes || availableTypes;
+      const validTypes = preferredTypes.filter(t => availableTypes.includes(t));
+      const commentType = pickRandom(validTypes.length > 0 ? validTypes : availableTypes);
+      
+      const emojiInstruction = persona 
+        ? this.getEmojiInstruction(persona.emojiFrequency)
+        : '1-2 emoji kullanabilirsin.';
+
+      const systemPrompt = `Sen bir sağlık ve fitness blogu okuyucususun. Türkçe yorum yazıyorsun.
+
+## YAZIM STİLİN:
+${WRITING_STYLE_PROMPTS[writingStyle]}
+
+## YORUM TİPİN:
+${COMMENT_TYPE_PROMPTS[commentType]}
+
+## GENEL KURALLAR:
+- 1-3 cümle yaz (kısa ve öz)
+- İçerikle ALAKALI ol, genel geçer yorum yazma
+- Doğal ve gerçek bir insan gibi yaz
+- ${emojiInstruction}
+- Soru SORMA
+- "Harika yazı", "Süper içerik" gibi GENEL ifadelerden KAÇIN
+- İçerikteki SPECIFIC bir noktaya değin`;
+
+      const userPrompt = `Blog: "${blogTitle}"
+İçerik özeti: ${excerpt.substring(0, 400)}
+
+Bu blog için doğal bir yorum yaz.`;
+
       const response = await this.client.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
-          {
-            role: 'system',
-            content: `Sen bir sağlık ve fitness blogu okuyucususun. Türkçe yorum yazıyorsun. 
-
-Kurallar:
-- Yorumlar 1-3 cümle olmalı
-- Samimi ve pozitif ol
-- Blog konusuyla ilgili kısa bir düşünce paylaş
-- Emoji kullanabilirsin (1-2 tane)
-- Soru sorma, sadece düşünceni paylaş
-- Doğal ve samimi bir dil kullan`
-          },
-          {
-            role:  'user',
-            content: `Blog başlığı: "${blogTitle}"
-
-Özet:  ${excerpt. substring(0, 300)}...
-
-Bu blog için kısa bir yorum yaz. `
-          }
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
         ],
         max_tokens: 150,
-        temperature: 0.8,
+        temperature: 0.9,
       });
 
-      const comment = response.choices[0]?.message?. content?. trim();
+      const comment = response.choices[0]?.message?.content?.trim();
       return comment || this.pickFallback(FALLBACK_BLOG_COMMENTS);
 
-    } catch (error:  any) {
-      logger.debug(`OpenAI hatası: ${error. message}`);
+    } catch (error: any) {
+      logger.debug(`OpenAI hatası: ${error.message}`);
       return this.pickFallback(FALLBACK_BLOG_COMMENTS);
     }
   }
@@ -102,51 +155,48 @@ Bu blog için kısa bir yorum yaz. `
   async generateCommentReply(
     originalComment: string, 
     previousReplies: string[] = [],
-    blogTitle?: string
+    blogTitle?: string,
+    persona?: PersonaConfig
   ): Promise<string> {
     if (!this.isAvailable || !this. client) {
       return this.pickFallback(FALLBACK_COMMENT_REPLIES);
     }
 
     try {
-      // Thread context oluştur
-      let contextText = `Orijinal yorum: "${originalComment}"`;
+      const writingStyle = persona 
+        ? pickRandom(persona.writingStyles) 
+        : 'casual' as WritingStyle;
       
-      if (previousReplies.length > 0) {
-        contextText += '\n\nÖnceki cevaplar:\n';
-        previousReplies.forEach((reply, i) => {
-          contextText += `${i + 1}. "${reply}"\n`;
-        });
-      }
-      
-      if (blogTitle) {
-        contextText += `\nBlog başlığı: "${blogTitle}"`;
-      }
-      
-      const response = await this.client. chat.completions. create({
-        model: 'gpt-4o-mini',
-        messages:  [
-          {
-            role: 'system',
-            content: `Sen bir sağlık ve fitness topluluğu üyesisin. Türkçe cevap yazıyorsun. 
-            
-Kurallar:
-- Cevaplar 1-2 cümle olmalı
-- Samimi ve destekleyici ol
-- Orijinal yoruma ve önceki cevaplara uygun, doğal bir dialog oluştur
-- Emoji kullanabilirsin (1 tane)
-- Tekrara düşme, önceki cevaplardan farklı bir bakış açısı sun
-- Doğal bir dil kullan`
-          },
-          {
-            role:  'user',
-            content: `${contextText}
+      const emojiInstruction = persona 
+        ? this.getEmojiInstruction(persona.emojiFrequency)
+        : '1 emoji kullanabilirsin.';
 
-Bu yoruma kısa bir cevap yaz.`
-          }
+      const systemPrompt = `Sen bir blog okuyucususun ve başka bir yoruma yanıt yazıyorsun. Türkçe yaz.
+
+## YAZIM STİLİN:
+${WRITING_STYLE_PROMPTS[writingStyle]}
+
+## KURALLAR:
+- 1-2 cümle yaz
+- Orijinal yoruma yanıt ver
+- Katılıyorsan belirt, eklemek istediğin varsa ekle
+- ${emojiInstruction}
+- Doğal ve samimi ol`;
+
+      const userPrompt = `${blogTitle ? `Blog konusu: "${blogTitle}"\n` : ''}
+Yanıt vereceğin yorum: "${originalComment}"
+${previousReplies.length > 0 ? `\nÖnceki yanıtlar (TEKRAR ETME):\n${previousReplies.map(r => `- ${r}`).join('\n')}` : ''}
+
+Bu yoruma kısa bir yanıt yaz.`;
+
+      const response = await this.client.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
         ],
         max_tokens: 100,
-        temperature: 0.8,
+        temperature: 0.9,
       });
 
       const reply = response.choices[0]?.message?.content?.trim();
@@ -158,89 +208,129 @@ Bu yoruma kısa bir cevap yaz.`
     }
   }
 
-  async generateDietComment(dietTitle: string, description?:  string): Promise<string> {
-    if (!this.isAvailable || !this. client) {
+  async generateDietComment(
+    dietTitle: string,
+    dietSlug: string,
+    persona?: PersonaConfig
+  ): Promise<string> {
+    if (!this.isAvailable || !this.client) {
       return this.pickFallback(FALLBACK_DIET_COMMENTS);
     }
 
     try {
-      const response = await this.client. chat.completions. create({
+      const writingStyle = persona 
+        ? pickRandom(persona.writingStyles) 
+        : 'casual' as WritingStyle;
+      
+      const availableTypes = CONTENT_TYPE_COMMENT_MAPPING['diet'];
+      const preferredTypes = persona?.preferredCommentTypes || availableTypes;
+      const validTypes = preferredTypes.filter(t => availableTypes.includes(t));
+      const commentType = pickRandom(validTypes.length > 0 ? validTypes : availableTypes);
+      
+      const emojiInstruction = persona 
+        ? this.getEmojiInstruction(persona.emojiFrequency)
+        : '1-2 emoji kullanabilirsin.';
+
+      const systemPrompt = `Sen bir diyet programını deneyen kullanıcısın. Türkçe değerlendirme yazıyorsun.
+
+## YAZIM STİLİN:
+${WRITING_STYLE_PROMPTS[writingStyle]}
+
+## YORUM TİPİN:
+${COMMENT_TYPE_PROMPTS[commentType]}
+
+## KURALLAR:
+- 1-3 cümle yaz
+- Sanki bu diyeti gerçekten denedin gibi yaz
+- Olumlu ama gerçekçi ol
+- ${emojiInstruction}
+- Spesifik bir şeyden bahset (tarifler, porsiyon, zorluk vs.)`;
+
+      const userPrompt = `Diyet programı: "${dietTitle}"
+
+Bu diyet programı için bir değerlendirme yaz.`;
+
+      const response = await this.client.chat.completions.create({
         model: 'gpt-4o-mini',
-        messages:  [
-          {
-            role: 'system',
-            content: `Sen bir diyet programı deneyen kullanıcısın. Türkçe yorum yazıyorsun.
-
-Kurallar:
-- Yorumlar 1-3 cümle olmalı
-- Pozitif ve motive edici ol
-- Kişisel deneyim gibi yaz
-- Emoji kullanabilirsin (1-2 tane)
-- Gerçekçi ol, abartma`
-          },
-          {
-            role:  'user',
-            content: `Diyet:  "${dietTitle}"
-${description ? `Açıklama: ${description. substring(0, 200)}...` : ''}
-
-Bu diyet için kısa bir yorum yaz.`
-          }
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
         ],
-        max_tokens:  150,
-        temperature: 0.8,
+        max_tokens: 150,
+        temperature: 0.9,
       });
 
       const comment = response.choices[0]?.message?.content?.trim();
-      return comment || this. pickFallback(FALLBACK_DIET_COMMENTS);
+      return comment || this.pickFallback(FALLBACK_DIET_COMMENTS);
 
     } catch (error: any) {
-      logger.debug(`OpenAI hatası: ${error. message}`);
+      logger.debug(`OpenAI hatası: ${error.message}`);
       return this.pickFallback(FALLBACK_DIET_COMMENTS);
     }
   }
 
-  async generateExerciseComment(exerciseTitle: string, description?: string): Promise<string> {
+  async generateExerciseComment(
+    exerciseTitle: string,
+    exerciseSlug: string,
+    persona?: PersonaConfig
+  ): Promise<string> {
     if (!this.isAvailable || !this.client) {
       return this.pickFallback(FALLBACK_EXERCISE_COMMENTS);
     }
 
     try {
+      const writingStyle = persona 
+        ? pickRandom(persona.writingStyles) 
+        : 'casual' as WritingStyle;
+      
+      const availableTypes = CONTENT_TYPE_COMMENT_MAPPING['exercise'];
+      const preferredTypes = persona?.preferredCommentTypes || availableTypes;
+      const validTypes = preferredTypes.filter(t => availableTypes.includes(t));
+      const commentType = pickRandom(validTypes.length > 0 ? validTypes : availableTypes);
+      
+      const emojiInstruction = persona 
+        ? this.getEmojiInstruction(persona.emojiFrequency)
+        : '1-2 emoji kullanabilirsin.';
+
+      const systemPrompt = `Sen bir egzersiz programını deneyen kullanıcısın. Türkçe değerlendirme yazıyorsun.
+
+## YAZIM STİLİN:
+${WRITING_STYLE_PROMPTS[writingStyle]}
+
+## YORUM TİPİN:
+${COMMENT_TYPE_PROMPTS[commentType]}
+
+## KURALLAR:
+- 1-3 cümle yaz
+- Sanki bu programı gerçekten denedin gibi yaz
+- Olumlu ama gerçekçi ol
+- ${emojiInstruction}
+- Spesifik bir şeyden bahset (zorluk, süre, etkili hareketler vs.)`;
+
+      const userPrompt = `Egzersiz programı: "${exerciseTitle}"
+
+Bu egzersiz programı için bir değerlendirme yaz.`;
+
       const response = await this.client.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
-          {
-            role: 'system',
-            content: `Sen bir egzersiz programı deneyen kullanıcısın. Türkçe yorum yazıyorsun. 
-
-Kurallar: 
-- Yorumlar 1-3 cümle olmalı
-- Enerjik ve motive edici ol
-- Kişisel deneyim gibi yaz
-- Emoji kullanabilirsin (1-2 tane)
-- Gerçekçi ol`
-          },
-          {
-            role:  'user',
-            content: `Egzersiz:  "${exerciseTitle}"
-${description ? `Açıklama: ${description.substring(0, 200)}...` : ''}
-
-Bu egzersiz için kısa bir yorum yaz.`
-          }
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
         ],
-        max_tokens:  150,
-        temperature: 0.8,
+        max_tokens: 150,
+        temperature: 0.9,
       });
 
       const comment = response.choices[0]?.message?.content?.trim();
-      return comment || this. pickFallback(FALLBACK_EXERCISE_COMMENTS);
+      return comment || this.pickFallback(FALLBACK_EXERCISE_COMMENTS);
 
     } catch (error: any) {
-      logger.debug(`OpenAI hatası: ${error. message}`);
+      logger.debug(`OpenAI hatası: ${error.message}`);
       return this.pickFallback(FALLBACK_EXERCISE_COMMENTS);
     }
   }
 
-  private pickFallback(list: string[]): string {
-    return list[Math.floor(Math.random() * list.length)];
+  private pickFallback(fallbacks: string[]): string {
+    return pickRandom(fallbacks);
   }
 }
