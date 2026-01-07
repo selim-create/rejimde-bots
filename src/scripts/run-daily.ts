@@ -240,7 +240,7 @@ async function performBlogActivities(
         const blog = await client.getBlog(blogId);
         
         if (blog) {
-          const comment = await openai.generateBlogComment(blog.title, blog.excerpt);
+          const comment = await openai.generateBlogComment(blog.title, blog.excerpt, persona);
           const result = await client.createComment({
             post: blogId,
             content: comment,
@@ -294,7 +294,7 @@ async function performDietActivities(
         const diet = diets.find(d => d.id === dietId);
         
         if (diet) {
-          const comment = await openai.generateDietComment(diet.title, diet.slug);
+          const comment = await openai.generateDietComment(diet.title, diet.slug, persona);
           const rating = randomInt(MIN_REVIEW_RATING, MAX_REVIEW_RATING);
           
           const result = await client.createComment({
@@ -389,7 +389,7 @@ async function performExerciseActivities(
         const exercise = exercises.find(e => e.id === exerciseId);
         
         if (exercise) {
-          const comment = await openai.generateExerciseComment(exercise.title, exercise.slug);
+          const comment = await openai.generateExerciseComment(exercise.title, exercise.slug, persona);
           const rating = randomInt(MIN_REVIEW_RATING, MAX_REVIEW_RATING);
           
           const result = await client.createComment({

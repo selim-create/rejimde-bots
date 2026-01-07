@@ -1,4 +1,6 @@
 import { PersonaType } from '../types';
+import { WritingStyle } from './writing-styles.config';
+import { CommentType } from './comment-prompts.config';
 
 export interface PersonaBehaviors {
   dailyLogin: number;
@@ -27,6 +29,12 @@ export interface PersonaConfig {
   activityFrequency: number;
   aiEnabled: boolean;
   behaviors: PersonaBehaviors;
+  
+  // YENİ ALANLAR
+  writingStyles: WritingStyle[];        // Bu persona hangi stillerde yazabilir
+  preferredCommentTypes: CommentType[]; // Hangi tip yorumlar yapabilir
+  emojiFrequency: 'none' | 'low' | 'medium' | 'high';
+  typoFrequency: number;                // 0-1 arası, yazım hatası olasılığı (gerçekçilik için)
 }
 
 export const PERSONA_CONFIGS: Record<PersonaType, PersonaConfig> = {
@@ -54,7 +62,12 @@ export const PERSONA_CONFIGS: Record<PersonaType, PersonaConfig> = {
       expertVisit: 0.30,
       calculatorUse: 0.25,
       replyToComments: 0.20
-    }
+    },
+    // YENİ
+    writingStyles: ['enthusiastic', 'storyteller', 'supportive', 'casual'],
+    preferredCommentTypes: ['appreciation', 'personal_story', 'motivation', 'before_after', 'recommendation'],
+    emojiFrequency: 'high',
+    typoFrequency: 0.05
   },
   active:  {
     name:  'Aktif',
@@ -80,7 +93,12 @@ export const PERSONA_CONFIGS: Record<PersonaType, PersonaConfig> = {
       expertVisit: 0.15,
       calculatorUse: 0.15,
       replyToComments: 0.05
-    }
+    },
+    // YENİ
+    writingStyles: ['casual', 'formal', 'analytical', 'minimalist'],
+    preferredCommentTypes: ['appreciation', 'agreement', 'specific_point', 'tip_sharing'],
+    emojiFrequency: 'medium',
+    typoFrequency: 0.10
   },
   normal: {
     name: 'Normal',
@@ -106,7 +124,12 @@ export const PERSONA_CONFIGS: Record<PersonaType, PersonaConfig> = {
       expertVisit: 0.08,
       calculatorUse: 0.10,
       replyToComments: 0.02
-    }
+    },
+    // YENİ
+    writingStyles: ['casual', 'minimalist'],
+    preferredCommentTypes: ['appreciation', 'agreement'],
+    emojiFrequency: 'low',
+    typoFrequency: 0.15
   },
   low_activity: {
     name: 'Düşük Aktivite',
@@ -132,7 +155,12 @@ export const PERSONA_CONFIGS: Record<PersonaType, PersonaConfig> = {
       expertVisit: 0.03,
       calculatorUse: 0.05,
       replyToComments: 0.01
-    }
+    },
+    // YENİ
+    writingStyles: ['minimalist', 'casual'],
+    preferredCommentTypes: ['appreciation'],
+    emojiFrequency: 'none',
+    typoFrequency: 0.20
   },
   dormant: {
     name: 'Uykuda',
@@ -158,14 +186,19 @@ export const PERSONA_CONFIGS: Record<PersonaType, PersonaConfig> = {
       expertVisit: 0.01,
       calculatorUse: 0.01,
       replyToComments: 0.00
-    }
+    },
+    // YENİ
+    writingStyles: ['minimalist'],
+    preferredCommentTypes: ['appreciation'],
+    emojiFrequency: 'none',
+    typoFrequency: 0.25
   },
   diet_focused: {
     name: 'Diyet Odaklı',
     description: 'Diyete odaklı kullanıcı',
     count: 50,
     activityFrequency: 0.65,
-    aiEnabled: false,
+    aiEnabled: true,
     behaviors: {
       dailyLogin: 0.75,
       blogReading: 0.60,
@@ -184,14 +217,19 @@ export const PERSONA_CONFIGS: Record<PersonaType, PersonaConfig> = {
       expertVisit: 0.25,
       calculatorUse: 0.40,
       replyToComments: 0.08
-    }
+    },
+    // YENİ
+    writingStyles: ['analytical', 'storyteller', 'formal'],
+    preferredCommentTypes: ['specific_point', 'before_after', 'tip_sharing', 'personal_story'],
+    emojiFrequency: 'low',
+    typoFrequency: 0.08
   },
   exercise_focused: {
     name: 'Egzersiz Odaklı',
     description: 'Egzersize odaklı kullanıcı',
     count: 50,
     activityFrequency: 0.65,
-    aiEnabled: false,
+    aiEnabled: true,
     behaviors: {
       dailyLogin: 0.75,
       blogReading: 0.40,
@@ -210,7 +248,12 @@ export const PERSONA_CONFIGS: Record<PersonaType, PersonaConfig> = {
       expertVisit: 0.15,
       calculatorUse: 0.30,
       replyToComments: 0.05
-    }
+    },
+    // YENİ
+    writingStyles: ['enthusiastic', 'supportive', 'gen_z', 'casual'],
+    preferredCommentTypes: ['motivation', 'before_after', 'personal_story', 'recommendation'],
+    emojiFrequency: 'high',
+    typoFrequency: 0.12
   }
 };
 
