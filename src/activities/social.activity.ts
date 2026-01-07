@@ -1,130 +1,138 @@
-import { Bot, BotState } from '../types/bot.types';
-import { ApiService } from '../services/api.service';
-import { Database } from '../database/sqlite';
-import { PERSONAS } from '../config/personas.config';
+import { LocalBot, BotState, LeaderboardUser, Circle, Expert } from '../types';
+import { RejimdeAPIClient } from '../utils/api-client';
+import { botDb } from '../database/bot-db';
+import { PersonaConfig } from '../config/personas.config';
 import { logger } from '../utils/logger';
-import { shouldPerformAction, pickRandom, randomInt } from '../utils/random';
+import { shouldPerform, pickRandom } from '../utils/random';
 
 export async function performSocialActivities(
-  bot: Bot,
+  bot: LocalBot,
   state: BotState,
-  api: ApiService,
-  db: Database
+  client: RejimdeAPIClient,
+  persona:  PersonaConfig
 ): Promise<void> {
-  const persona = PERSONAS[bot.persona];
   if (!persona) return;
   
   // Kullanıcı takip etme
-  if (shouldPerformAction(persona.behaviors.followUsers)) {
-    await followRandomUser(bot, state, api, db);
+  if (shouldPerform(persona. behaviors.followUsers)) {
+    await followRandomUser(bot, state, client);
   }
   
   // Beşlik çakma
-  if (shouldPerformAction(persona.behaviors.sendHighFive)) {
-    await sendHighFive(bot, state, api, db);
+  if (shouldPerform(persona. behaviors.sendHighFive)) {
+    await sendHighFive(bot, state, client);
   }
   
   // Circle'a katılma
-  if (! bot.circleId && shouldPerformAction(persona.behaviors.circleJoin)) {
-    await joinCircle(bot, api, db);
+  if (! state.circle_id && shouldPerform(persona. behaviors.circleJoin)) {
+    await joinCircle(bot, state, client);
   }
   
   // Uzman profili ziyaret
-  if (shouldPerformAction(persona.behaviors.expertVisit)) {
-    await visitExpertProfile(bot, api, db);
+  if (shouldPerform(persona.behaviors.expertVisit)) {
+    await visitExpertProfile(bot, state, client);
   }
 }
 
 async function followRandomUser(
-  bot: Bot,
-  state:  BotState,
-  api: ApiService,
-  db:  Database
+  bot: LocalBot,
+  state: BotState,
+  client: RejimdeAPIClient
 ): Promise<void> {
   try {
-    // Leaderboard'dan rastgele kullanıcı seç
-    const leaderboard = await api.getLeaderboard({ limit: 100 });
-    const notFollowed = leaderboard. filter(u => 
-      u.id !== bot.wpUserId && 
-      !state.followedUsers.includes(u.id)
+    const leaderboard = await client.getLeaderboard({ limit: 100 });
+    const notFollowed = leaderboard. filter((u: LeaderboardUser) => 
+      u.id !== bot.user_id && 
+      !state. followed_users.includes(u.id)
     );
     
     if (notFollowed.length === 0) return;
     
     const user = pickRandom(notFollowed);
-    const result = await api. followUser(bot. token, user.id);
+    const result = await client. followUser(user. id);
     
-    if (result.success) {
-      state.followedUsers. push(user.id);
-      db.updateBotState(bot.id, state);
-      db.logActivity(bot. id, 'follow', 'user', user.id, true);
-      logger.success(`[${bot.username}] ${user.name} takip edildi`);
+    if (result. status === 'success') {
+      state.followed_users. push(user.id);
+      botDb.updateState(bot.id, { followed_users: state.followed_users });
+      botDb. logActivity(bot. id, 'follow', 'user', user.id, true);
+      logger.bot(bot.username, `${user.name} takip edildi`);
     }
   } catch (error: any) {
-    logger. debug(`[${bot.username}] Takip hatası: ${error.message}`);
+    logger.debug(`[${bot.username}] Takip hatası: ${error.message}`);
   }
 }
 
 async function sendHighFive(
-  bot: Bot,
+  bot: LocalBot,
   state: BotState,
-  api: ApiService,
-  db: Database
+  client: RejimdeAPIClient
 ): Promise<void> {
   try {
-    // Takip ettiğimiz birine beşlik çak
-    if (state.followedUsers.length === 0) return;
+    if (state.followed_users.length === 0) return;
     
-    const userId = pickRandom(state.followedUsers);
-    const result = await api.sendHighFive(bot.token, userId);
+    const userId = pickRandom(state. followed_users);
+    const result = await client.sendHighFive(userId);
     
-    if (result.success) {
-      db.logActivity(bot.id, 'high_five', 'user', userId, true);
-      logger.success(`[${bot.username}] Beşlik çakıldı! `);
+    if (result.status === 'success') {
+      botDb.logActivity(bot.id, 'high_five', 'user', userId, true);
+      logger.bot(bot.username, `Beşlik çakıldı!  ✋`);
     }
   } catch (error: any) {
     logger.debug(`[${bot.username}] High-five hatası: ${error.message}`);
   }
 }
 
-async function joinCircle(bot: Bot, api:  ApiService, db:  Database): Promise<void> {
+async function joinCircle(
+  bot: LocalBot,
+  state: BotState,
+  client: RejimdeAPIClient
+): Promise<void> {
   try {
-    const circles = await api.getCircles({ limit:  20 });
+    const circles = await client. getCircles({ limit: 20 });
     
     if (circles. length === 0) return;
     
     const circle = pickRandom(circles);
-    const result = await api. joinCircle(bot.token, circle. id);
+    const result = await client.joinCircle(circle.id);
     
-    if (result. success) {
-      db.updateBotCircle(bot.id, circle.id);
-      db.logActivity(bot.id, 'circle_join', 'circle', circle.id, true);
-      logger.success(`[${bot.username}] Circle'a katıldı:  "${circle.name}"`);
+    if (result.status === 'success') {
+      state. circle_id = circle.id;
+      botDb.updateState(bot.id, { circle_id:  circle.id });
+      botDb.logActivity(bot.id, 'circle_join', 'circle', circle.id, true);
+      logger.bot(bot.username, `Circle'a katıldı: "${circle.name}" 🎯`);
     }
   } catch (error: any) {
     logger.debug(`[${bot.username}] Circle hatası: ${error. message}`);
   }
 }
 
-async function visitExpertProfile(bot: Bot, api:  ApiService, db:  Database): Promise<void> {
+async function visitExpertProfile(
+  bot:  LocalBot,
+  state: BotState,
+  client:  RejimdeAPIClient
+): Promise<void> {
   try {
-    const experts = await api.getExperts({ limit: 30 });
+    const experts = await client. getExperts({ limit: 30 });
     
     if (experts. length === 0) return;
     
     const expert = pickRandom(experts);
+    const sessionId = `bot_${bot.id}_${Date.now()}`;
     
-    // Profile view track et
-    await api.trackProfileView(expert.slug);
+    await client.trackProfileView(expert. slug, sessionId);
+    botDb.logActivity(bot.id, 'expert_visit', 'expert', expert.id, true);
+    logger.debug(`[${bot.username}] Uzman ziyaret edildi: ${expert.name}`);
     
     // %30 ihtimalle takip et
-    if (Math.random() < 0.3) {
-      await api.followUser(bot.token, expert.user_id);
-      db.logActivity(bot.id, 'expert_follow', 'expert', expert.user_id, true);
+    if (Math.random() < 0.3 && expert.user_id) {
+      const followResult = await client. followUser(expert. user_id);
+      if (followResult.status === 'success') {
+        state.followed_users.push(expert. user_id);
+        botDb.updateState(bot.id, { followed_users: state.followed_users });
+        botDb.logActivity(bot.id, 'expert_follow', 'expert', expert.user_id, true);
+        logger.bot(bot.username, `Uzman takip edildi: ${expert. name}`);
+      }
     }
-    
-    db.logActivity(bot.id, 'expert_visit', 'expert', expert.id, true);
-    logger.debug(`[${bot.username}] Uzman profili ziyaret edildi: ${expert.name}`);
   } catch (error: any) {
     logger.debug(`[${bot.username}] Uzman ziyareti hatası: ${error.message}`);
   }

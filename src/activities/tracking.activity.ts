@@ -1,94 +1,90 @@
-import { Bot } from '../types/bot.types';
-import { ApiService } from '../services/api. service';
-import { Database } from '../database/sqlite';
-import { PERSONAS } from '../config/personas.config';
+import { LocalBot } from '../types';
+import { RejimdeAPIClient } from '../utils/api-client';
+import { botDb } from '../database/bot-db';
+import { PersonaConfig } from '../config/personas.config';
 import { logger } from '../utils/logger';
-import { shouldPerformAction, randomInt } from '../utils/random';
+import { shouldPerform, pickRandom, randomInt } from '../utils/random';
 
 export async function performTrackingActivities(
-  bot: Bot,
-  api: ApiService,
-  db: Database
+  bot: LocalBot,
+  client: RejimdeAPIClient,
+  persona: PersonaConfig
 ): Promise<void> {
-  const persona = PERSONAS[bot.persona];
   if (!persona) return;
   
   // Su takibi
-  if (shouldPerformAction(persona.behaviors.waterTracking)) {
-    await logWater(bot, api, db);
+  if (shouldPerform(persona. behaviors.waterTracking)) {
+    await logWater(bot, client);
   }
   
   // Öğün loglama
-  if (shouldPerformAction(persona.behaviors.mealLogging)) {
-    await logMeal(bot, api, db);
+  if (shouldPerform(persona.behaviors.mealLogging)) {
+    await logMeal(bot, client);
   }
   
   // Adım senkronizasyonu
-  if (shouldPerformAction(persona. behaviors.stepLogging)) {
-    await logSteps(bot, api, db);
+  if (shouldPerform(persona.behaviors.stepLogging)) {
+    await logSteps(bot, client);
   }
   
   // Hesaplayıcı kullanma
-  if (shouldPerformAction(persona.behaviors. calculatorUse)) {
-    await useCalculator(bot, api, db);
+  if (shouldPerform(persona.behaviors.calculatorUse)) {
+    await useCalculator(bot, client);
   }
 }
 
-async function logWater(bot: Bot, api:  ApiService, db:  Database): Promise<void> {
+async function logWater(bot: LocalBot, client: RejimdeAPIClient): Promise<void> {
   try {
-    // Günde 5-12 bardak su (200ml)
-    const glasses = randomInt(5, 12);
+    const glasses = randomInt(5, 12); // 5-12 bardak (200ml)
     
     for (let i = 0; i < glasses; i++) {
-      await api.dispatchEvent(bot.token, 'water_added', null, null, { amount: 200 });
+      await client.dispatchEvent('water_added', null, null, { amount: 200 });
     }
     
-    db.logActivity(bot.id, 'water_log', null, null, true, JSON.stringify({ glasses }));
-    logger.debug(`[${bot.username}] Su kaydedildi: ${glasses} bardak`);
-  } catch (error: any) {
-    logger. debug(`[${bot.username}] Su loglama hatası:  ${error.message}`);
+    botDb.logActivity(bot.id, 'water_log', null, null, true, JSON.stringify({ glasses }));
+    logger.bot(bot.username, `Su kaydedildi: ${glasses} bardak 💧`);
+  } catch (error:  any) {
+    logger.debug(`[${bot.username}] Su loglama hatası:  ${error.message}`);
   }
 }
 
-async function logMeal(bot:  Bot, api: ApiService, db: Database): Promise<void> {
+async function logMeal(bot:  LocalBot, client:  RejimdeAPIClient): Promise<void> {
   try {
-    // 1-3 öğün
-    const meals = randomInt(1, 3);
+    const meals = randomInt(1, 3); // 1-3 öğün
     
     for (let i = 0; i < meals; i++) {
-      await api.dispatchEvent(bot.token, 'meal_photo_uploaded', 'meal', null);
+      await client.dispatchEvent('meal_photo_uploaded', 'meal', null);
     }
     
-    db.logActivity(bot.id, 'meal_log', null, null, true, JSON.stringify({ meals }));
-    logger.debug(`[${bot.username}] Öğün kaydedildi:  ${meals} öğün`);
+    botDb. logActivity(bot. id, 'meal_log', null, null, true, JSON.stringify({ meals }));
+    logger.bot(bot.username, `Öğün kaydedildi:  ${meals} öğün 🍽️`);
   } catch (error: any) {
-    logger.debug(`[${bot.username}] Öğün loglama hatası: ${error. message}`);
+    logger. debug(`[${bot.username}] Öğün loglama hatası: ${error.message}`);
   }
 }
 
-async function logSteps(bot: Bot, api: ApiService, db: Database): Promise<void> {
+async function logSteps(bot: LocalBot, client: RejimdeAPIClient): Promise<void> {
   try {
-    // 3000-15000 adım
-    const steps = randomInt(3000, 15000);
+    const steps = randomInt(3000, 15000); // 3000-15000 adım
     
-    await api.dispatchEvent(bot.token, 'steps_logged', null, null, { steps });
+    await client.dispatchEvent('steps_logged', null, null, { steps });
     
-    db.logActivity(bot.id, 'steps_log', null, null, true, JSON.stringify({ steps }));
-    logger.debug(`[${bot.username}] Adım kaydedildi:  ${steps}`);
+    botDb.logActivity(bot.id, 'steps_log', null, null, true, JSON. stringify({ steps }));
+    logger.bot(bot.username, `Adım kaydedildi:  ${steps} adım 👟`);
   } catch (error: any) {
-    logger. debug(`[${bot.username}] Adım loglama hatası: ${error.message}`);
+    logger.debug(`[${bot.username}] Adım loglama hatası: ${error.message}`);
   }
 }
 
-async function useCalculator(bot: Bot, api: ApiService, db: Database): Promise<void> {
+async function useCalculator(bot: LocalBot, client: RejimdeAPIClient): Promise<void> {
   try {
     const calculatorTypes = ['bmi', 'calorie', 'water', 'ideal_weight'];
-    const type = calculatorTypes[randomInt(0, calculatorTypes.length - 1)];
+    const type = pickRandom(calculatorTypes);
     
-    await api. dispatchEvent(bot.token, 'calculator_saved', 'calculator', null, { type });
+    await client.dispatchEvent('calculator_saved', 'calculator', null, { type });
     
-    db.logActivity(bot.id, 'calculator_use', 'calculator', null, true, JSON.stringify({ type }));
-    logger.debug(`[${bot.username}] Hesaplayıcı kullanıldı:  ${type}`);
+    botDb.logActivity(bot.id, 'calculator_use', 'calculator', null, true, JSON. stringify({ type }));
+    logger.bot(bot.username, `Hesaplayıcı kullanıldı: ${type} 🧮`);
   } catch (error: any) {
     logger.debug(`[${bot.username}] Hesaplayıcı hatası: ${error. message}`);
   }

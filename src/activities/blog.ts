@@ -1,47 +1,50 @@
-import { Bot, BotState } from '../types/bot.types';
-import { ApiService } from '../services/api.service';
-import { Database } from '../database/sqlite';
-import { OpenAIService } from '../services/openai.service';
-import { PERSONAS } from '../config/personas.config';
+import { LocalBot, BotState, BlogPost, Comment } from '../types';
+import { RejimdeAPIClient } from '../utils/api-client';
+import { botDb } from '../database/bot-db';
+import { OpenAIService } from '../services/openai-service';
+import { PERSONA_CONFIGS, PersonaConfig } from '../config/personas.config';
 import { logger } from '../utils/logger';
-import { shouldPerformAction, pickRandom, delay } from '../utils/random';
+import { shouldPerform, pickRandom } from '../utils/random';
+import { PersonaType } from '../types';
 
 export async function performBlogActivities(
-  bot: Bot,
+  bot: LocalBot,
   state: BotState,
-  api: ApiService,
-  db: Database,
+  client: RejimdeAPIClient,
+  persona: PersonaConfig,
   openai?:  OpenAIService
 ): Promise<void> {
-  const persona = PERSONAS[bot.persona];
-  if (! persona) return;
+  if (!persona) return;
   
   // Blog okuma
-  if (shouldPerformAction(persona. behaviors.blogReading)) {
-    await readBlog(bot, state, api, db);
+  if (shouldPerform(persona.behaviors. blogReading)) {
+    await readBlog(bot, state, client);
   }
   
   // Blog yorumlama (AI destekli persona'lar için)
-  if (persona.aiEnabled && openai && shouldPerformAction(persona.behaviors.blogCommenting)) {
-    await commentOnBlog(bot, state, api, db, openai);
+  if (persona.aiEnabled && openai && shouldPerform(persona.behaviors.blogCommenting)) {
+    await commentOnBlog(bot, state, client, openai);
   }
   
   // Yorum beğenme
-  if (shouldPerformAction(persona.behaviors.likeComments)) {
-    await likeRandomComment(bot, api, db);
+  if (shouldPerform(persona.behaviors.likeComments)) {
+    await likeRandomComment(bot, state, client);
   }
   
   // Yorumlara cevap (AI)
-  if (persona.aiEnabled && openai && shouldPerformAction(persona.behaviors.replyToComments)) {
-    await replyToComment(bot, state, api, db, openai);
+  if (persona.aiEnabled && openai && shouldPerform(persona.behaviors. replyToComments)) {
+    await replyToComment(bot, state, client, openai);
   }
 }
 
-async function readBlog(bot: Bot, state:  BotState, api: ApiService, db: Database): Promise<void> {
+async function readBlog(
+  bot: LocalBot,
+  state: BotState,
+  client: RejimdeAPIClient
+): Promise<void> {
   try {
-    // Rastgele blog seç (henüz okumadığımız)
-    const blogs = await api.getBlogs({ limit: 50 });
-    const unreadBlogs = blogs.filter(b => !state.readBlogs.includes(b.id));
+    const blogs = await client.getBlogs({ limit: 50 });
+    const unreadBlogs = blogs.filter((b: BlogPost) => !state.read_blogs.includes(b.id));
     
     if (unreadBlogs.length === 0) {
       logger.debug(`[${bot.username}] Tüm bloglar okunmuş`);
@@ -50,122 +53,124 @@ async function readBlog(bot: Bot, state:  BotState, api: ApiService, db: Databas
     
     const blog = pickRandom(unreadBlogs);
     
-    // Blog okuma point'i claim et
-    const result = await api.dispatchEvent(bot.token, 'blog_points_claimed', 'blog', blog.id, {
+    const result = await client.dispatchEvent('blog_points_claimed', 'blog', blog. id, {
       is_sticky: blog.is_sticky || false
     });
     
-    if (result.success) {
-      state.readBlogs. push(blog.id);
-      db.updateBotState(bot.id, state);
-      db.logActivity(bot.id, 'blog_read', 'blog', blog. id, true);
-      logger.success(`[${bot.username}] Blog okundu: "${blog.title. substring(0, 30)}..."`);
+    if (result. status === 'success') {
+      state.read_blogs. push(blog.id);
+      botDb.updateState(bot.id, { read_blogs: state.read_blogs });
+      botDb.logActivity(bot.id, 'blog_read', 'blog', blog. id, true);
+      logger.bot(bot.username, `Blog okundu: "${blog.title. substring(0, 30)}..."`);
     }
   } catch (error:  any) {
-    logger.error(`[${bot.username}] Blog okuma hatası: ${error. message}`);
+    logger.debug(`[${bot.username}] Blog okuma hatası: ${error.message}`);
   }
 }
 
 async function commentOnBlog(
-  bot: Bot,
+  bot: LocalBot,
   state: BotState,
-  api: ApiService,
-  db: Database,
+  client: RejimdeAPIClient,
   openai:  OpenAIService
 ): Promise<void> {
   try {
-    // Okuduğumuz ama yorum yapmadığımız bloglar
-    const uncommentedBlogs = state.readBlogs. filter(id => !state.commentedPosts.includes(id));
+    const uncommentedBlogs = state.read_blogs.filter(id => !state.commented_posts.includes(id));
     
     if (uncommentedBlogs.length === 0) return;
     
     const blogId = pickRandom(uncommentedBlogs);
-    const blog = await api. getBlog(blogId);
+    const blog = await client.getBlog(blogId);
     
-    // AI ile yorum üret
-    const comment = await openai. generateBlogComment(blog. title, blog.excerpt);
+    if (!blog) return;
     
-    // Yorum yap
-    const result = await api.createComment(bot.token, {
+    const comment = await openai.generateBlogComment(blog.title, blog.excerpt);
+    
+    const result = await client.createComment({
       post:  blogId,
       content: comment,
       context: 'blog'
     });
     
-    if (result.success) {
-      state.commentedPosts.push(blogId);
-      db.updateBotState(bot.id, state);
-      db.logActivity(bot.id, 'blog_comment', 'blog', blogId, true);
-      logger.success(`[${bot.username}] Blog yorumu: "${comment.substring(0, 50)}..."`);
+    if (result.status === 'success') {
+      state.commented_posts.push(blogId);
+      botDb.updateState(bot.id, { commented_posts: state. commented_posts });
+      botDb.logActivity(bot.id, 'blog_comment', 'blog', blogId, true);
+      logger.bot(bot.username, `Blog yorumu: "${comment.substring(0, 50)}..."`);
     }
   } catch (error: any) {
-    logger.error(`[${bot.username}] Yorum hatası: ${error. message}`);
+    logger.debug(`[${bot.username}] Yorum hatası: ${error. message}`);
   }
 }
 
-async function likeRandomComment(bot: Bot, api:  ApiService, db:  Database): Promise<void> {
+async function likeRandomComment(
+  bot:  LocalBot,
+  state: BotState,
+  client:  RejimdeAPIClient
+): Promise<void> {
   try {
-    // Rastgele post seç ve yorumları al
-    const blogs = await api.getBlogs({ limit:  20 });
+    const blogs = await client.getBlogs({ limit:  20 });
+    if (blogs.length === 0) return;
+    
     const blog = pickRandom(blogs);
-    const comments = await api. getComments(blog.id);
+    const comments = await client.getComments(blog.id);
     
     if (comments.length === 0) return;
     
-    // Kendi yorumumuz değilse beğen
-    const otherComments = comments.filter(c => c.author_id !== bot.wpUserId);
-    if (otherComments.length === 0) return;
+    // Beğenmediğimiz yorumları filtrele
+    const unliked = comments.filter((c: Comment) => !state.liked_comments.includes(c.id));
+    if (unliked.length === 0) return;
     
-    const comment = pickRandom(otherComments);
-    const result = await api. likeComment(bot. token, comment.id);
+    const comment = pickRandom(unliked);
+    const result = await client. likeComment(comment.id);
     
-    if (result.success) {
-      db.logActivity(bot.id, 'comment_like', 'comment', comment.id, true);
+    if (result.status === 'success') {
+      state.liked_comments.push(comment. id);
+      botDb.updateState(bot.id, { liked_comments: state.liked_comments });
+      botDb. logActivity(bot. id, 'comment_like', 'comment', comment.id, true);
       logger.debug(`[${bot.username}] Yorum beğenildi`);
     }
   } catch (error: any) {
-    logger.debug(`[${bot.username}] Beğeni hatası: ${error. message}`);
+    logger.debug(`[${bot.username}] Beğeni hatası: ${error.message}`);
   }
 }
 
 async function replyToComment(
-  bot:  Bot,
+  bot: LocalBot,
   state: BotState,
-  api: ApiService,
-  db: Database,
+  client: RejimdeAPIClient,
   openai: OpenAIService
 ): Promise<void> {
   try {
-    // Rastgele blog seç
-    const blogs = await api.getBlogs({ limit: 10 });
-    const blog = pickRandom(blogs);
-    const comments = await api. getComments(blog.id);
+    const blogs = await client.getBlogs({ limit:  10 });
+    if (blogs.length === 0) return;
     
-    // Kendi yorumumuz olmayan, henüz cevap verilmemiş yorumlar
-    const replyable = comments.filter(c => 
-      c.author_id !== bot. wpUserId && 
-      c.reply_count === 0
+    const blog = pickRandom(blogs);
+    const comments = await client.getComments(blog.id);
+    
+    // Henüz cevap verilmemiş yorumlar
+    const replyable = comments.filter((c: Comment) => 
+      c.reply_count === 0 || c.reply_count === undefined
     );
     
     if (replyable.length === 0) return;
     
     const parentComment = pickRandom(replyable);
     
-    // AI ile cevap üret
     const reply = await openai. generateCommentReply(parentComment.content, blog.title);
     
-    const result = await api. createComment(bot. token, {
-      post: blog.id,
-      content:  reply,
+    const result = await client.createComment({
+      post:  blog.id,
+      content: reply,
       parent: parentComment.id,
       context:  'blog'
     });
     
-    if (result.success) {
-      db.logActivity(bot.id, 'comment_reply', 'comment', parentComment.id, true);
-      logger.success(`[${bot.username}] Yoruma cevap: "${reply.substring(0, 50)}..."`);
+    if (result.status === 'success') {
+      botDb.logActivity(bot.id, 'comment_reply', 'comment', parentComment.id, true);
+      logger.bot(bot.username, `Yoruma cevap: "${reply.substring(0, 50)}..."`);
     }
   } catch (error: any) {
-    logger.error(`[${bot.username}] Cevap hatası: ${error. message}`);
+    logger.debug(`[${bot.username}] Cevap hatası: ${error. message}`);
   }
 }

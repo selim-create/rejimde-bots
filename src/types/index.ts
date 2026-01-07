@@ -11,19 +11,25 @@ export type PersonaType =
 // Bot User Profile (Generator'ın ürettiği)
 export interface BotUser {
   username: string;
-  email: string;
+  email:  string;
   password: string;
   name: string;
   gender: 'male' | 'female';
   birth_date: string;
-  height: number;
+  height:  number;
   current_weight: number;
   target_weight: number;
-  goal:  string;
-  activity_level: string;
-  description: string;
+  goal: string;
+  activity_level:  string;
+  description:  string;
   location: string;
   avatar_url: string;
+  
+  // Simulation fields (user-generator tarafından ekleniyor)
+  is_simulation?:  boolean;
+  simulation_persona?: PersonaType;
+  simulation_batch?: string;
+  simulation_active?: boolean;
 }
 
 // Alias for backward compatibility
@@ -34,7 +40,7 @@ export interface LocalBot {
   id:  number;
   user_id: number;
   username: string;
-  email:  string;
+  email: string;
   password: string;
   persona: PersonaType;
   batch_id: string;
@@ -53,7 +59,7 @@ export interface BotState {
   bot_id: number;
   started_diets: number[];
   completed_diets: number[];
-  started_exercises: number[];
+  started_exercises:  number[];
   completed_exercises: number[];
   followed_users: number[];
   read_blogs: number[];
@@ -91,10 +97,10 @@ export interface RegisterResponse {
 }
 
 export interface LoginResponse {
-  token: string;
+  token:  string;
   user_id: number;
   user_email: string;
-  user_display_name: string;
+  user_display_name:  string;
   current_streak?:  number;
 }
 
@@ -109,7 +115,7 @@ export interface EventDispatchResponse {
 
 // Content Types
 export interface BlogPost {
-  id:  number;
+  id: number;
   title: string;
   slug: string;
   excerpt: string;
@@ -130,7 +136,7 @@ export interface DietPlan {
 export interface ExercisePlan {
   id: number;
   title: string;
-  slug:  string;
+  slug: string;
   difficulty?: string;
   duration?: string;
   score_reward?:  number;

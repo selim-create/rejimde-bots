@@ -30,6 +30,15 @@ class BotDatabase {
         last_login TEXT,
         current_streak INTEGER DEFAULT 0,
         total_score INTEGER DEFAULT 0,
+        -- Yeni eklenen alanlar
+        gender TEXT,
+        height INTEGER,
+        current_weight REAL,
+        target_weight REAL,
+        goal TEXT,
+        activity_level TEXT,
+        location TEXT,
+
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP
       );
@@ -37,6 +46,8 @@ class BotDatabase {
       CREATE INDEX IF NOT EXISTS idx_bots_persona ON bots(persona);
       CREATE INDEX IF NOT EXISTS idx_bots_batch ON bots(batch_id);
       CREATE INDEX IF NOT EXISTS idx_bots_active ON bots(is_active);
+      CREATE INDEX IF NOT EXISTS idx_bots_gender ON bots(gender);
+      CREATE INDEX IF NOT EXISTS idx_bots_goal ON bots(goal);
     `);
 
     // Bot State tablosu (JSON stored arrays)
@@ -85,22 +96,40 @@ class BotDatabase {
   saveBot(data: {
     user_id: number;
     username: string;
-    email: string;
+    email:  string;
     password: string;
-    persona:  PersonaType;
-    batch_id:  string;
+    persona: PersonaType;
+    batch_id: string;
+    gender?:  string;
+    height?: number;
+    current_weight?: number;
+    target_weight?: number;
+    goal?: string;
+    activity_level?: string;
+    location?: string;
   }): number {
     const stmt = this.db. prepare(`
-      INSERT INTO bots (user_id, username, email, password, persona, batch_id)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO bots (
+        user_id, username, email, password, persona, batch_id,
+        gender, height, current_weight, target_weight, goal, activity_level, location
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
-    const result = stmt.run(
+    
+    const result = stmt. run(
       data.user_id,
       data.username,
-      data.email,
+      data. email,
       data.password,
       data.persona,
-      data. batch_id
+      data.batch_id,
+      data.gender || null,
+      data. height || null,
+      data.current_weight || null,
+      data.target_weight || null,
+      data.goal || null,
+      data.activity_level || null,
+      data.location || null
     );
     
     // State kaydı oluştur

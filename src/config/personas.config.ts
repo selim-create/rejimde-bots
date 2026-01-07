@@ -1,31 +1,31 @@
 import { PersonaType } from '../types';
 
 export interface PersonaBehaviors {
-  dailyLogin: number;          // Her gün giriş yapma olasılığı (0-1)
-  blogReading: number;         // Blog okuma olasılığı
-  blogCommenting: number;      // Yorum yazma olasılığı
-  dietStart: number;           // Diyet başlatma olasılığı
-  dietComplete: number;        // Başladığı diyeti tamamlama olasılığı
-  exerciseStart: number;       // Egzersiz başlatma olasılığı
-  exerciseComplete: number;    // Egzersiz tamamlama olasılığı
-  waterTracking: number;       // Su takibi yapma olasılığı
-  mealLogging: number;         // Öğün loglama olasılığı
-  stepLogging: number;         // Adım senkronizasyonu
-  circleJoin: number;          // Circle'a katılma olasılığı
-  followUsers: number;         // Kullanıcı takip etme olasılığı
-  sendHighFive: number;        // Beşlik çakma olasılığı
-  likeComments: number;        // Yorum beğenme olasılığı
-  expertVisit: number;         // Uzman profili ziyareti
-  calculatorUse: number;       // Hesaplayıcı kullanma
-  replyToComments: number;     // Yorumlara cevap yazma
+  dailyLogin: number;
+  blogReading: number;
+  blogCommenting: number;
+  dietStart: number;
+  dietComplete: number;
+  exerciseStart: number;
+  exerciseComplete: number;
+  waterTracking: number;
+  mealLogging: number;
+  stepLogging: number;
+  circleJoin: number;
+  followUsers: number;
+  sendHighFive: number;
+  likeComments: number;
+  expertVisit: number;
+  calculatorUse: number;
+  replyToComments: number;
 }
 
 export interface PersonaConfig {
-  name:  string;
+  name: string;
   description: string;
-  count: number;               // 1000 bot için kaç tane
-  activityFrequency: number;   // Günlük aktif olma olasılığı (0-1)
-  aiEnabled: boolean;          // AI ile yorum yazabilir mi?
+  count: number;
+  activityFrequency: number;
+  aiEnabled: boolean;
   behaviors: PersonaBehaviors;
 }
 
@@ -33,10 +33,10 @@ export const PERSONA_CONFIGS: Record<PersonaType, PersonaConfig> = {
   super_active: {
     name: 'Süper Aktif',
     description: 'Her gün aktif, her şeyi yapan kullanıcı.  AI destekli yorum yazabilir.',
-    count: 30,  // %3
+    count: 30,
     activityFrequency: 0.95,
     aiEnabled: true,
-    behaviors:  {
+    behaviors: {
       dailyLogin: 0.98,
       blogReading: 0.80,
       blogCommenting: 0.30,
@@ -46,7 +46,7 @@ export const PERSONA_CONFIGS: Record<PersonaType, PersonaConfig> = {
       exerciseComplete: 0.80,
       waterTracking: 0.90,
       mealLogging: 0.70,
-      stepLogging: 0.85,
+      stepLogging:  0.85,
       circleJoin: 0.60,
       followUsers: 0.50,
       sendHighFive: 0.40,
@@ -56,14 +56,13 @@ export const PERSONA_CONFIGS: Record<PersonaType, PersonaConfig> = {
       replyToComments: 0.20
     }
   },
-  
   active:  {
     name:  'Aktif',
-    description:  'Düzenli kullanıcı, çoğu özelliği kullanıyor',
-    count: 150,  // %15
+    description:  'Düzenli kullanıcı',
+    count: 150,
     activityFrequency: 0.75,
     aiEnabled: false,
-    behaviors: {
+    behaviors:  {
       dailyLogin: 0.80,
       blogReading: 0.50,
       blogCommenting: 0.10,
@@ -83,16 +82,15 @@ export const PERSONA_CONFIGS: Record<PersonaType, PersonaConfig> = {
       replyToComments: 0.05
     }
   },
-  
   normal: {
     name: 'Normal',
-    description: 'Ortalama kullanıcı davranışı',
-    count: 350,  // %35
+    description: 'Ortalama kullanıcı',
+    count: 350,
     activityFrequency: 0.50,
     aiEnabled: false,
     behaviors: {
       dailyLogin: 0.60,
-      blogReading:  0.30,
+      blogReading: 0.30,
       blogCommenting: 0.05,
       dietStart: 0.15,
       dietComplete: 0.50,
@@ -110,11 +108,10 @@ export const PERSONA_CONFIGS: Record<PersonaType, PersonaConfig> = {
       replyToComments: 0.02
     }
   },
-  
   low_activity: {
     name: 'Düşük Aktivite',
-    description:  'Ara sıra gelen kullanıcı',
-    count: 250,  // %25
+    description: 'Ara sıra gelen kullanıcı',
+    count:  250,
     activityFrequency: 0.25,
     aiEnabled: false,
     behaviors: {
@@ -137,11 +134,10 @@ export const PERSONA_CONFIGS: Record<PersonaType, PersonaConfig> = {
       replyToComments: 0.01
     }
   },
-  
   dormant: {
     name: 'Uykuda',
     description:  'Nadiren aktif kullanıcı',
-    count: 120,  // %12
+    count: 120,
     activityFrequency: 0.08,
     aiEnabled: false,
     behaviors: {
@@ -164,11 +160,10 @@ export const PERSONA_CONFIGS: Record<PersonaType, PersonaConfig> = {
       replyToComments: 0.00
     }
   },
-  
   diet_focused: {
     name: 'Diyet Odaklı',
-    description: 'Diyete odaklı kullanıcı, egzersiz az',
-    count: 50,  // %5
+    description: 'Diyete odaklı kullanıcı',
+    count: 50,
     activityFrequency: 0.65,
     aiEnabled: false,
     behaviors: {
@@ -191,11 +186,10 @@ export const PERSONA_CONFIGS: Record<PersonaType, PersonaConfig> = {
       replyToComments: 0.08
     }
   },
-  
   exercise_focused: {
     name: 'Egzersiz Odaklı',
-    description:  'Egzersize odaklı kullanıcı, diyet az',
-    count:  50,  // %5
+    description: 'Egzersize odaklı kullanıcı',
+    count: 50,
     activityFrequency: 0.65,
     aiEnabled: false,
     behaviors: {
@@ -220,4 +214,5 @@ export const PERSONA_CONFIGS: Record<PersonaType, PersonaConfig> = {
   }
 };
 
-// Toplam kontrol:  30+150+350+250+120+50+50 = 1000 ✓
+// Backward compatibility - PERSONAS alias
+export const PERSONAS = PERSONA_CONFIGS;

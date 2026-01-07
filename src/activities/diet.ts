@@ -1,88 +1,89 @@
-import { Bot, BotState } from '../types/bot.types';
-import { ApiService } from '../services/api.service';
-import { Database } from '../database/sqlite';
-import { PERSONAS } from '../config/personas.config';
+import { LocalBot, BotState, DietPlan } from '../types';
+import { RejimdeAPIClient } from '../utils/api-client';
+import { botDb } from '../database/bot-db';
+import { PersonaConfig } from '../config/personas.config';
 import { logger } from '../utils/logger';
-import { shouldPerformAction, pickRandom } from '../utils/random';
+import { shouldPerform, pickRandom } from '../utils/random';
 
 export async function performDietActivities(
-  bot:  Bot,
-  state: BotState,
-  api: ApiService,
-  db: Database
+  bot: LocalBot,
+  state:  BotState,
+  client: RejimdeAPIClient,
+  persona: PersonaConfig
 ): Promise<void> {
-  const persona = PERSONAS[bot.persona];
-  if (!persona) return;
+  if (! persona) return;
   
   // Aktif diyet varsa tamamlama kontrolü
-  if (bot.activeDietId) {
-    if (shouldPerformAction(persona.behaviors.dietComplete)) {
-      await completeDiet(bot, state, api, db);
+  if (state.active_diet_id) {
+    if (shouldPerform(persona.behaviors.dietComplete)) {
+      await completeDiet(bot, state, client);
     }
   } else {
     // Yeni diyet başlatma
-    if (shouldPerformAction(persona.behaviors. dietStart)) {
-      await startNewDiet(bot, state, api, db);
+    if (shouldPerform(persona.behaviors.dietStart)) {
+      await startNewDiet(bot, state, client);
     }
   }
 }
 
 async function startNewDiet(
-  bot: Bot,
-  state: BotState,
-  api: ApiService,
-  db: Database
+  bot: LocalBot,
+  state:  BotState,
+  client: RejimdeAPIClient
 ): Promise<void> {
   try {
-    // Henüz başlamadığımız diyetler
-    const diets = await api.getDiets({ limit: 30 });
-    const available = diets.filter(d => 
-      ! state.startedDiets.includes(d.id) && 
-      ! state.completedDiets.includes(d.id)
+    const diets = await client. getDiets({ limit:  30 });
+    const available = diets.filter((d: DietPlan) => 
+      ! state.started_diets.includes(d.id) && 
+      !state. completed_diets.includes(d.id)
     );
     
-    if (available. length === 0) {
-      logger. debug(`[${bot.username}] Başlanabilecek diyet kalmadı`);
+    if (available.length === 0) {
+      logger.debug(`[${bot.username}] Başlanabilecek diyet kalmadı`);
       return;
     }
     
     const diet = pickRandom(available);
     
-    const result = await api. startPlan(bot.token, diet.id);
+    const result = await client.startPlan(diet.id);
     
-    if (result.success) {
-      state.startedDiets.push(diet.id);
-      db.updateBotState(bot.id, state);
-      db.updateBotActiveDiet(bot. id, diet.id);
-      db.logActivity(bot.id, 'diet_start', 'diet', diet. id, true);
-      logger.success(`[${bot.username}] Diyet başlatıldı: "${diet. title}"`);
+    if (result.status === 'success') {
+      state. started_diets. push(diet.id);
+      state.active_diet_id = diet.id;
+      botDb.updateState(bot.id, {
+        started_diets: state.started_diets,
+        active_diet_id: diet.id
+      });
+      botDb. logActivity(bot. id, 'diet_start', 'diet', diet.id, true);
+      logger.bot(bot.username, `Diyet başlatıldı: "${diet.title}"`);
     }
   } catch (error: any) {
-    logger. error(`[${bot.username}] Diyet başlatma hatası: ${error.message}`);
+    logger.debug(`[${bot.username}] Diyet başlatma hatası: ${error. message}`);
   }
 }
 
 async function completeDiet(
-  bot:  Bot,
+  bot: LocalBot,
   state: BotState,
-  api: ApiService,
-  db: Database
+  client: RejimdeAPIClient
 ): Promise<void> {
   try {
-    if (! bot.activeDietId) return;
+    if (! state.active_diet_id) return;
     
-    const result = await api.completePlan(bot.token, bot.activeDietId);
+    const dietId = state.active_diet_id;
+    const result = await client.completePlan(dietId);
     
-    if (result.success) {
-      state.completedDiets.push(bot.activeDietId);
-      db.updateBotState(bot.id, state);
-      db.updateBotActiveDiet(bot.id, null);
-      db.logActivity(bot. id, 'diet_complete', 'diet', bot.activeDietId, true);
-      logger.success(`[${bot.username}] Diyet tamamlandı!  +${result.data?. reward_points || 0} puan`);
+    if (result.status === 'success') {
+      state. completed_diets. push(dietId);
+      state.active_diet_id = null;
+      botDb.updateState(bot.id, {
+        completed_diets: state.completed_diets,
+        active_diet_id: null
+      });
+      botDb.logActivity(bot.id, 'diet_complete', 'diet', dietId, true);
+      logger.bot(bot.username, `Diyet tamamlandı!  🎉`);
     }
   } catch (error: any) {
-    logger. error(`[${bot.username}] Diyet tamamlama hatası: ${error.message}`);
+    logger. debug(`[${bot.username}] Diyet tamamlama hatası: ${error.message}`);
   }
 }
-
-// Exercise için benzer yapı... 

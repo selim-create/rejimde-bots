@@ -121,15 +121,22 @@ async function createBots(options: CreateBotsOptions = {}) {
         });
 
         if (response.status === 'success' && response.data) {
-          // Local database'e kaydet
-          botDb.saveBot({
-            user_id: response.data.user_id,
-            username: userProfile.username,
-            email: userProfile.email,
-            password: userProfile.password,
-            persona,
-            batch_id: BATCH_ID,
-          });
+        // Güncellenmiş: 
+        botDb.saveBot({
+          user_id: response.data. user_id,
+          username: userProfile.username,
+          email: userProfile. email,
+          password: userProfile.password,
+          persona,
+          batch_id: BATCH_ID,
+          gender:  userProfile.gender,
+          height: userProfile.height,
+          current_weight:  userProfile.current_weight,
+          target_weight: userProfile.target_weight,
+          goal: userProfile.goal,
+          activity_level:  userProfile.activity_level,
+          location: userProfile.location,
+        });
 
           totalCreated++;
           logger.bot(userProfile.username, `Oluşturuldu (${totalCreated}/${count})`);

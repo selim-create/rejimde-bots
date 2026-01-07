@@ -20,7 +20,7 @@
     "toggle-bots:stats": "ts-node src/scripts/toggle-bots.ts --stats",
     "toggle-bots:off": "ts-node src/scripts/toggle-bots.ts --all --inactive",
     "toggle-bots:on": "ts-node src/scripts/toggle-bots.ts --all --active",
-    
+    "report": "ts-node src/scripts/report.ts",
     "test-api": "ts-node src/scripts/test-api.ts",
     "test-generator": "ts-node src/scripts/test-generator.ts",
     "test-db": "ts-node src/scripts/test-db.ts"
