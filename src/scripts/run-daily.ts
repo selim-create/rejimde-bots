@@ -232,29 +232,41 @@ async function performBlogActivities(
   // AI yorum
   if (persona.aiEnabled && shouldPerform(persona.behaviors.blogCommenting)) {
     try {
-      const uncommented = state.read_blogs.filter(id => !state. commented_posts.includes(id));
+      // Zaten yorum yapılmış blogları filtrele
+      const uncommented = state.read_blogs.filter(id => !state.commented_posts.includes(id));
       
       if (uncommented.length > 0) {
         const blogId = pickRandom(uncommented);
         const blog = await client.getBlog(blogId);
         
         if (blog) {
-          const comment = await openai. generateBlogComment(blog.title, blog. excerpt);
+          const comment = await openai.generateBlogComment(blog.title, blog.excerpt);
           const result = await client.createComment({
-            post:  blogId,
+            post: blogId,
             content: comment,
             context: 'blog',
           });
 
-          if (result. status === 'success') {
-            state.commented_posts. push(blogId);
-            botDb. updateState(bot. id, { commented_posts: state.commented_posts });
+          if (result.status === 'success') {
+            state.commented_posts.push(blogId);
+            botDb.updateState(bot.id, { commented_posts: state.commented_posts });
             botDb.logActivity(bot.id, 'blog_comment', 'blog', blogId, true);
             logger.bot(bot.username, `Blog yorumu: "${comment.substring(0, 40)}..."`);
+          } else if (result.message?.includes('zaten değerlendirdiniz') || result.message?.includes('already')) {
+            // 409 - Zaten yorum yapılmış, state'e ekle
+            if (!state.commented_posts.includes(blogId)) {
+              state.commented_posts.push(blogId);
+              botDb.updateState(bot.id, { commented_posts: state.commented_posts });
+            }
+            logger.debug(`[${bot.username}] Blog zaten yorumlanmış: ${blogId}`);
+          } else {
+            logger.debug(`[${bot.username}] Yorum hatası: ${result.message}`);
           }
         }
+      } else {
+        logger.debug(`[${bot.username}] Yorum yapılacak blog kalmadı`);
       }
-    } catch (error:  any) {
+    } catch (error: any) {
       logger.debug(`[${bot.username}] Yorum hatası: ${error.message}`);
     }
   }
@@ -458,10 +470,14 @@ async function performSocialActivities(
   persona:  typeof PERSONA_CONFIGS[PersonaType]
 ): Promise<void> {
   // Kullanıcı takip
-  if (shouldPerform(persona. behaviors.followUsers)) {
+  if (shouldPerform(persona.behaviors.followUsers)) {
     try {
       const leaderboard = await client.getLeaderboard({ limit: 50 });
-      const notFollowed = leaderboard. filter(u => !state.followed_users.includes(u.id));
+      // Kendimizi VE zaten takip ettiklerimizi filtrele
+      const notFollowed = leaderboard.filter(u => 
+        u.id !== bot.user_id &&
+        !state.followed_users.includes(u.id)
+      );
 
       if (notFollowed.length > 0) {
         const user = pickRandom(notFollowed);
@@ -469,10 +485,22 @@ async function performSocialActivities(
 
         if (result.status === 'success') {
           state.followed_users.push(user.id);
-          botDb.updateState(bot.id, { followed_users:  state.followed_users });
+          botDb.updateState(bot.id, { followed_users: state.followed_users });
           botDb.logActivity(bot.id, 'follow', 'user', user.id, true);
           logger.bot(bot.username, `${user.name} takip edildi`);
+        } else if (result.message?.includes('already') || result.message?.includes('zaten') || result.message?.includes('Takipten') || result.message?.includes('Kendinizi takip edemezsiniz')) {
+          // Zaten takip ediliyor, toggle ile takipten çıkıldı, veya kendi kendini takip etmeye çalıştı
+          // State'e ekleme (kendi user_id'si değilse)
+          if (!state.followed_users.includes(user.id) && user.id !== bot.user_id) {
+            state.followed_users.push(user.id);
+            botDb.updateState(bot.id, { followed_users: state.followed_users });
+          }
+          logger.debug(`[${bot.username}] Kullanıcı zaten takip ediliyor veya takip edilemez: ${user.id}`);
+        } else {
+          logger.debug(`[${bot.username}] Takip hatası: ${result.message}`);
         }
+      } else {
+        logger.debug(`[${bot.username}] Takip edilebilecek kullanıcı kalmadı`);
       }
     } catch (error: any) {
       logger.debug(`[${bot.username}] Takip hatası: ${error.message}`);
@@ -512,13 +540,17 @@ async function performSocialActivities(
           logger.bot(bot. username, `Circle'a katıldı:  "${circle.name}" 🎯`);
         } else if (result.message?.includes('ayrılmalısınız') || result.message?.includes('already')) {
           // Zaten bir circle'da - API'den mevcut circle bilgisini çek ve state'i güncelle
-          // Note: API returns error messages without specific codes, so we match on message content
           logger.debug(`[${bot.username}] Zaten bir circle'da, state senkronize ediliyor...`);
           const myCircle = await client.getMyCircle();
           if (myCircle) {
+            // Circle bulundu - state'i güncelle
             state.circle_id = myCircle.id;
             botDb.updateState(bot.id, { circle_id: myCircle.id });
-            logger.debug(`[${bot.username}] Circle state güncellendi: ${myCircle.name} (${myCircle.id})`);
+            logger.debug(`[${bot.username}] Circle state senkronize edildi: ${myCircle.name} (${myCircle.id})`);
+          } else {
+            // Circle bulunamadı (404) - kullanıcının eski circle_id meta'sı var ama circle silinmiş
+            // State'i temizle, bir sonraki run'da tekrar denesin
+            logger.debug(`[${bot.username}] Circle bulunamadı, bir sonraki çalıştırmada tekrar denenecek`);
           }
         }
       }
@@ -536,7 +568,7 @@ async function performSocialActivities(
         const expert = pickRandom(experts);
         const sessionId = `bot_${bot.id}_${Date.now()}`;
         
-        await client.trackProfileView(expert.id, sessionId);
+        await client.trackProfileView(expert.slug, sessionId);
         botDb.logActivity(bot.id, 'expert_visit', 'expert', expert.id, true);
         logger.bot(bot.username, `Uzman ziyaret edildi: ${expert.name}`);
 

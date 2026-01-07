@@ -61,14 +61,14 @@ async function followRandomUser(
       botDb.updateState(bot.id, { followed_users: state.followed_users });
       botDb. logActivity(bot. id, 'follow', 'user', user.id, true);
       logger.bot(bot.username, `${user.name} takip edildi`);
-    } else if (result.message?. includes('already') || result.message?.includes('zaten') || result.message?. includes('Takipten')) {
-      // Zaten takip ediliyor veya toggle ile takipten çıkıldı
-      // State'e ekleme
-      if (! state.followed_users.includes(user. id)) {
-        state.followed_users.push(user. id);
+    } else if (result.message?.includes('already') || result.message?.includes('zaten') || result.message?.includes('Takipten') || result.message?.includes('Kendinizi takip edemezsiniz')) {
+      // Zaten takip ediliyor, toggle ile takipten çıkıldı, veya kendi kendini takip etmeye çalıştı
+      // State'e ekleme (kendi user_id'si değilse)
+      if (!state.followed_users.includes(user.id) && user.id !== bot.user_id) {
+        state.followed_users.push(user.id);
         botDb.updateState(bot.id, { followed_users: state.followed_users });
       }
-      logger. debug(`[${bot.username}] Kullanıcı zaten takip ediliyor: ${user.id}`);
+      logger.debug(`[${bot.username}] Kullanıcı zaten takip ediliyor veya takip edilemez: ${user.id}`);
     } else {
       logger.debug(`[${bot.username}] Takip hatası: ${result.message}`);
     }
@@ -124,15 +124,19 @@ async function joinCircle(
       botDb.updateState(bot.id, { circle_id: circle.id });
       botDb.logActivity(bot.id, 'circle_join', 'circle', circle.id, true);
       logger.bot(bot.username, `Circle'a katıldı: "${circle.name}" 🎯`);
-    } else if (result.message?. includes('ayrılmalısınız') || result.message?.includes('already')) {
+    } else if (result.message?.includes('ayrılmalısınız') || result.message?.includes('already')) {
       // Zaten bir circle'da - API'den mevcut circle bilgisini çek ve state'i güncelle
-      // Note: API returns error messages without specific codes, so we match on message content
       logger.debug(`[${bot.username}] Zaten bir circle'da, state senkronize ediliyor...`);
       const myCircle = await client.getMyCircle();
       if (myCircle) {
+        // Circle bulundu - state'i güncelle
         state.circle_id = myCircle.id;
         botDb.updateState(bot.id, { circle_id: myCircle.id });
-        logger.debug(`[${bot.username}] Circle state güncellendi: ${myCircle.name} (${myCircle.id})`);
+        logger.debug(`[${bot.username}] Circle state senkronize edildi: ${myCircle.name} (${myCircle.id})`);
+      } else {
+        // Circle bulunamadı (404) - kullanıcının eski circle_id meta'sı var ama circle silinmiş
+        // State'i temizle, bir sonraki run'da tekrar denesin
+        logger.debug(`[${bot.username}] Circle bulunamadı, bir sonraki çalıştırmada tekrar denenecek`);
       }
     }
   } catch (error:  any) {
@@ -153,9 +157,9 @@ async function visitExpertProfile(
     const expert = pickRandom(experts);
     const sessionId = `bot_${bot.id}_${Date.now()}`;
     
-    await client.trackProfileView(expert.id, sessionId);
+    await client.trackProfileView(expert.slug, sessionId);
     botDb.logActivity(bot.id, 'expert_visit', 'expert', expert.id, true);
-    logger.debug(`[${bot.username}] Uzman ziyaret edildi: ${expert.name}`);
+    logger.bot(bot.username, `Uzman ziyaret edildi: ${expert.name}`);
     
     // %30 ihtimalle takip et
     if (Math.random() < 0.3 && expert.user_id) {

@@ -83,9 +83,13 @@ async function commentOnBlog(
   openai: OpenAIService
 ): Promise<void> {
   try {
-    const uncommentedBlogs = state.read_blogs.filter(id => ! state.commented_posts.includes(id));
+    // Zaten yorum yapılmış blogları filtrele
+    const uncommentedBlogs = state.read_blogs.filter(id => !state.commented_posts.includes(id));
     
-    if (uncommentedBlogs.length === 0) return;
+    if (uncommentedBlogs.length === 0) {
+      logger.debug(`[${bot.username}] Yorum yapılacak blog kalmadı`);
+      return;
+    }
     
     const blogId = pickRandom(uncommentedBlogs);
     const blog = await client.getBlog(blogId);
@@ -94,23 +98,29 @@ async function commentOnBlog(
     
     const commentText = await openai.generateBlogComment(blog.title, blog.excerpt);
     
-    // Sadece gerekli alanları gönder
     const result = await client.createComment({
-      post:  blogId,
-      content: commentText
-      // context kaldırıldı - backend'de sorun yaratıyor olabilir
+      post: blogId,
+      content: commentText,
+      context: 'blog'
     });
     
     if (result.status === 'success') {
       state.commented_posts.push(blogId);
-      botDb.updateState(bot.id, { commented_posts:  state.commented_posts });
+      botDb.updateState(bot.id, { commented_posts: state.commented_posts });
       botDb.logActivity(bot.id, 'blog_comment', 'blog', blogId, true);
-      logger.bot(bot.username, `Blog yorumu: "${commentText. substring(0, 50)}..."`);
+      logger.bot(bot.username, `Blog yorumu: "${commentText.substring(0, 50)}..."`);
+    } else if (result.message?.includes('zaten değerlendirdiniz') || result.message?.includes('already')) {
+      // 409 - Zaten yorum yapılmış, state'e ekle
+      if (!state.commented_posts.includes(blogId)) {
+        state.commented_posts.push(blogId);
+        botDb.updateState(bot.id, { commented_posts: state.commented_posts });
+      }
+      logger.debug(`[${bot.username}] Blog zaten yorumlanmış: ${blogId}`);
     } else {
-      logger.debug(`[${bot.username}] Yorum hatası: ${result. message}`);
+      logger.debug(`[${bot.username}] Yorum hatası: ${result.message}`);
     }
   } catch (error: any) {
-    logger. debug(`[${bot.username}] Yorum hatası: ${error.message}`);
+    logger.debug(`[${bot.username}] Yorum hatası: ${error.message}`);
   }
 }
 
