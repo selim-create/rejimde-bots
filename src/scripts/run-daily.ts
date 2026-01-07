@@ -299,32 +299,62 @@ async function performDietActivities(
   // Tamamlanmış diyetleri değerlendir (sadece 1 kez)
   if (persona.aiEnabled) {
     try {
-      const completedNotReviewed = state.completed_diets.filter(
-        id => !state.reviewed_diets.includes(id)
-      );
+      // DEBUG: State durumunu logla
+      logger.debug(`[${bot.username}] Diet Review Check - completed: ${JSON.stringify(state.completed_diets)}, reviewed: ${JSON.stringify(state.reviewed_diets)}`);
       
-      if (completedNotReviewed.length > 0 && shouldPerform(REVIEW_PROBABILITY)) {
-        const dietId = pickRandom(completedNotReviewed);
-        const diets = await client.getDiets({ limit: 100 });
-        const diet = diets.find(d => d.id === dietId);
+      // ID'leri number'a normalize et
+      const completedIds = state.completed_diets.map(id => typeof id === 'string' ? parseInt(id, 10) : id);
+      const reviewedIds = state.reviewed_diets.map(id => typeof id === 'string' ? parseInt(id, 10) : id);
+      
+      const completedNotReviewed = completedIds.filter(id => !reviewedIds.includes(id));
+      
+      logger.debug(`[${bot.username}] Değerlendirilmemiş diyetler: ${JSON.stringify(completedNotReviewed)}`);
+      
+      if (completedNotReviewed.length > 0) {
+        logger.debug(`[${bot.username}] ${completedNotReviewed.length} diyet değerlendirme bekliyor`);
         
-        if (diet) {
-          const comment = await openai.generateDietComment(diet.title, diet.slug, persona);
-          const rating = randomInt(MIN_REVIEW_RATING, MAX_REVIEW_RATING);
+        if (shouldPerform(REVIEW_PROBABILITY)) {
+          const dietId = pickRandom(completedNotReviewed);
+          logger.debug(`[${bot.username}] Diyet ${dietId} için değerlendirme yapılacak`);
           
-          const result = await client.createComment({
-            post: dietId,
-            content: comment,
-            rating: rating,
-            context: 'diet'
+          const diets = await client.getDiets({ limit: 100 });
+          
+          // ID karşılaştırmasını normalize et
+          const diet = diets.find(d => {
+            const apiId = typeof d.id === 'string' ? parseInt(d.id, 10) : d.id;
+            return apiId === dietId;
           });
           
-          if (result.status === 'success') {
-            state.reviewed_diets.push(dietId);
-            botDb.updateState(bot.id, { reviewed_diets: state.reviewed_diets });
-            botDb.logActivity(bot.id, 'diet_review', 'diet', dietId, true);
-            logger.bot(bot.username, `Diyet değerlendirmesi yapıldı: "${comment.substring(0, 40)}..." (${rating}⭐)`);
+          if (diet) {
+            const comment = await openai.generateDietComment(diet.title, diet.slug, persona);
+            const rating = randomInt(MIN_REVIEW_RATING, MAX_REVIEW_RATING);
+            
+            const result = await client.createComment({
+              post: dietId,
+              content: comment,
+              rating: rating,
+              context: 'diet'
+            });
+            
+            if (result.status === 'success') {
+              state.reviewed_diets.push(dietId);
+              botDb.updateState(bot.id, { reviewed_diets: state.reviewed_diets });
+              botDb.logActivity(bot.id, 'diet_review', 'diet', dietId, true);
+              logger.bot(bot.username, `Diyet değerlendirmesi yapıldı: "${comment.substring(0, 40)}..." (${rating}⭐)`);
+            } else if (result.message?.includes('zaten değerlendirdiniz') || result.message?.includes('already')) {
+              if (!state.reviewed_diets.includes(dietId)) {
+                state.reviewed_diets.push(dietId);
+                botDb.updateState(bot.id, { reviewed_diets: state.reviewed_diets });
+              }
+              logger.debug(`[${bot.username}] Diyet zaten değerlendirilmiş: ${dietId}`);
+            } else {
+              logger.debug(`[${bot.username}] Diyet değerlendirme hatası: ${result.message}`);
+            }
+          } else {
+            logger.debug(`[${bot.username}] Diyet bulunamadı: ${dietId}`);
           }
+        } else {
+          logger.debug(`[${bot.username}] Diyet değerlendirme olasılık kontrolünde atlandı`);
         }
       }
     } catch (error: any) {
@@ -336,10 +366,13 @@ async function performDietActivities(
   if (state.active_diet_id) {
     if (shouldPerform(persona.behaviors.dietComplete)) {
       try {
-        const dietId = state.active_diet_id;
+        const dietId = typeof state.active_diet_id === 'string' 
+          ? parseInt(state.active_diet_id, 10) 
+          : state.active_diet_id;
+          
         const result = await client.completePlan(dietId);
         if (result.status === 'success') {
-          state.completed_diets.push(dietId);
+          state.completed_diets.push(dietId);  // Number olarak ekle
           state.active_diet_id = null;
           botDb.updateState(bot.id, {
             completed_diets: state.completed_diets,
@@ -347,6 +380,7 @@ async function performDietActivities(
           });
           botDb.logActivity(bot.id, 'diet_complete', 'diet', dietId, true);
           logger.bot(bot.username, `Diyet tamamlandı!  🎉`);
+          logger.debug(`[${bot.username}] completed_diets güncellendi: ${JSON.stringify(state.completed_diets)}`);
         }
       } catch (error: any) {
         logger. debug(`[${bot.username}] Diyet tamamlama hatası: ${error.message}`);
@@ -394,32 +428,73 @@ async function performExerciseActivities(
   // Tamamlanmış egzersizleri değerlendir (sadece 1 kez)
   if (persona.aiEnabled) {
     try {
-      const completedNotReviewed = state.completed_exercises.filter(
-        id => !state.reviewed_exercises.includes(id)
-      );
+      // DEBUG: State durumunu logla
+      logger.debug(`[${bot.username}] Exercise Review Check - completed: ${JSON.stringify(state.completed_exercises)}, reviewed: ${JSON.stringify(state.reviewed_exercises)}`);
       
-      if (completedNotReviewed.length > 0 && shouldPerform(REVIEW_PROBABILITY)) {
-        const exerciseId = pickRandom(completedNotReviewed);
-        const exercises = await client.getExercises({ limit: 100 });
-        const exercise = exercises.find(e => e.id === exerciseId);
+      // ID'leri number'a normalize et (string/number uyumsuzluğunu önle)
+      const completedIds = state.completed_exercises.map(id => typeof id === 'string' ? parseInt(id, 10) : id);
+      const reviewedIds = state.reviewed_exercises.map(id => typeof id === 'string' ? parseInt(id, 10) : id);
+      
+      const completedNotReviewed = completedIds.filter(id => !reviewedIds.includes(id));
+      
+      logger.debug(`[${bot.username}] Değerlendirilmemiş egzersizler: ${JSON.stringify(completedNotReviewed)}`);
+      
+      // Önce data kontrolü, sonra olasılık kontrolü
+      if (completedNotReviewed.length > 0) {
+        logger.debug(`[${bot.username}] ${completedNotReviewed.length} egzersiz değerlendirme bekliyor`);
         
-        if (exercise) {
-          const comment = await openai.generateExerciseComment(exercise.title, exercise.slug, persona);
-          const rating = randomInt(MIN_REVIEW_RATING, MAX_REVIEW_RATING);
+        if (shouldPerform(REVIEW_PROBABILITY)) {
+          const exerciseId = pickRandom(completedNotReviewed);
+          logger.debug(`[${bot.username}] Egzersiz ${exerciseId} için değerlendirme yapılacak`);
           
-          const result = await client.createComment({
-            post: exerciseId,
-            content: comment,
-            rating: rating,
-            context: 'exercise'
+          const exercises = await client.getExercises({ limit: 100 });
+          
+          // DEBUG: API'den gelen exercise ID tipini logla
+          if (exercises.length > 0) {
+            logger.debug(`[${bot.username}] API Exercise ID örnek: ${exercises[0].id} (tip: ${typeof exercises[0].id})`);
+          }
+          
+          // ID karşılaştırmasını normalize et
+          const exercise = exercises.find(e => {
+            const apiId = typeof e.id === 'string' ? parseInt(e.id, 10) : e.id;
+            return apiId === exerciseId;
           });
           
-          if (result.status === 'success') {
-            state.reviewed_exercises.push(exerciseId);
-            botDb.updateState(bot.id, { reviewed_exercises: state.reviewed_exercises });
-            botDb.logActivity(bot.id, 'exercise_review', 'exercise', exerciseId, true);
-            logger.bot(bot.username, `Egzersiz değerlendirmesi yapıldı: "${comment.substring(0, 40)}..." (${rating}⭐)`);
+          if (exercise) {
+            const comment = await openai.generateExerciseComment(exercise.title, exercise.slug, persona);
+            const rating = randomInt(MIN_REVIEW_RATING, MAX_REVIEW_RATING);
+            
+            logger.debug(`[${bot.username}] Egzersiz yorumu oluşturuldu: "${comment.substring(0, 50)}..."`);
+            
+            const result = await client.createComment({
+              post: exerciseId,
+              content: comment,
+              rating: rating,
+              context: 'exercise'
+            });
+            
+            logger.debug(`[${bot.username}] Comment API response: ${JSON.stringify(result)}`);
+            
+            if (result.status === 'success') {
+              state.reviewed_exercises.push(exerciseId);
+              botDb.updateState(bot.id, { reviewed_exercises: state.reviewed_exercises });
+              botDb.logActivity(bot.id, 'exercise_review', 'exercise', exerciseId, true);
+              logger.bot(bot.username, `Egzersiz değerlendirmesi yapıldı: "${comment.substring(0, 40)}..." (${rating}⭐)`);
+            } else if (result.message?.includes('zaten değerlendirdiniz') || result.message?.includes('already')) {
+              // Zaten değerlendirilmiş - state'e ekle
+              if (!state.reviewed_exercises.includes(exerciseId)) {
+                state.reviewed_exercises.push(exerciseId);
+                botDb.updateState(bot.id, { reviewed_exercises: state.reviewed_exercises });
+              }
+              logger.debug(`[${bot.username}] Egzersiz zaten değerlendirilmiş: ${exerciseId}`);
+            } else {
+              logger.debug(`[${bot.username}] Egzersiz değerlendirme hatası: ${result.message}`);
+            }
+          } else {
+            logger.debug(`[${bot.username}] Egzersiz bulunamadı: ${exerciseId} (API'de ${exercises.length} egzersiz var)`);
           }
+        } else {
+          logger.debug(`[${bot.username}] Değerlendirme olasılık kontrolünde atlandı (REVIEW_PROBABILITY: ${REVIEW_PROBABILITY})`);
         }
       }
     } catch (error: any) {
@@ -431,10 +506,13 @@ async function performExerciseActivities(
   if (state. active_exercise_id) {
     if (shouldPerform(persona.behaviors.exerciseComplete)) {
       try {
-        const exerciseId = state.active_exercise_id;
+        const exerciseId = typeof state.active_exercise_id === 'string' 
+          ? parseInt(state.active_exercise_id, 10) 
+          : state.active_exercise_id;
+          
         const result = await client.completeExerciseProgress(exerciseId);
         if (result. status === 'success') {
-          state.completed_exercises. push(exerciseId);
+          state.completed_exercises. push(exerciseId);  // Number olarak ekle
           state.active_exercise_id = null;
           botDb.updateState(bot.id, {
             completed_exercises: state.completed_exercises,
@@ -442,6 +520,7 @@ async function performExerciseActivities(
           });
           botDb.logActivity(bot.id, 'exercise_complete', 'exercise', exerciseId, true);
           logger.bot(bot.username, `Egzersiz tamamlandı! 💪`);
+          logger.debug(`[${bot.username}] completed_exercises güncellendi: ${JSON.stringify(state.completed_exercises)}`);
         }
       } catch (error: any) {
         logger. debug(`[${bot.username}] Egzersiz tamamlama hatası: ${error.message}`);
