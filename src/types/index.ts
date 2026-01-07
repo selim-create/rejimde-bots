@@ -63,6 +63,15 @@ export interface LocalBot {
   location?: string;
 }
 
+// AI Generator State
+export interface AIGeneratorState {
+  created_diets_today: number;
+  created_exercises_today: number;
+  created_diet_ids: number[];
+  created_exercise_ids: number[];
+  last_generation_date: string;
+}
+
 // Bot State
 export interface BotState {
   bot_id: number;
@@ -80,6 +89,7 @@ export interface BotState {
   circle_id: number | null;
   active_diet_id: number | null;
   active_exercise_id: number | null;
+  ai_generator?: AIGeneratorState;
 }
 
 // Activity Log

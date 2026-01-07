@@ -131,6 +131,11 @@ class BotDatabase {
       if (!stateColumnNames.includes('reviewed_exercises')) {
         this.db.exec(`ALTER TABLE bot_states ADD COLUMN reviewed_exercises TEXT DEFAULT '[]'`);
       }
+      
+      // ai_generator kolonu ekle
+      if (!stateColumnNames.includes('ai_generator')) {
+        this.db.exec(`ALTER TABLE bot_states ADD COLUMN ai_generator TEXT DEFAULT NULL`);
+      }
     } catch (e) {
       // Kolon zaten varsa veya tablo yoksa (yeni kurulum) devam et
     }
@@ -277,7 +282,8 @@ class BotDatabase {
         replied_comments: [],
         circle_id: null,
         active_diet_id: null,
-        active_exercise_id: null
+        active_exercise_id: null,
+        ai_generator: undefined
       };
     }
 
@@ -296,7 +302,8 @@ class BotDatabase {
       replied_comments: JSON.parse(row.replied_comments || '[]'),
       circle_id: row.circle_id,
       active_diet_id: row. active_diet_id,
-      active_exercise_id: row.active_exercise_id
+      active_exercise_id: row.active_exercise_id,
+      ai_generator: row.ai_generator ? JSON.parse(row.ai_generator) : undefined
     };
   }
 
@@ -359,6 +366,10 @@ class BotDatabase {
     if (state. active_exercise_id !== undefined) {
       updates.push('active_exercise_id = ?');
       values.push(state.active_exercise_id);
+    }
+    if (state.ai_generator !== undefined) {
+      updates.push('ai_generator = ?');
+      values.push(state.ai_generator ? JSON.stringify(state.ai_generator) : null);
     }
 
     if (updates.length === 0) return;

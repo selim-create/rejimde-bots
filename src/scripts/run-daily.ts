@@ -10,6 +10,7 @@ import { delay } from '../utils/delay';
 import { shouldPerform, pickRandom, randomInt } from '../utils/random';
 import { LocalBot, BotState, PersonaType } from '../types';
 import { OpenAIService } from '../services/openai.service';
+import { performAIGeneratorActivity } from '../activities/ai-generator.activity';
 
 // Ayarlar
 const DELAY_BETWEEN_BOTS = 3000;
@@ -17,6 +18,7 @@ const DELAY_BETWEEN_ACTIONS = 800;
 const REVIEW_PROBABILITY = 0.6;
 const MIN_REVIEW_RATING = 4;
 const MAX_REVIEW_RATING = 5;
+const AI_GENERATION_PROBABILITY = 0.15; // %15 ihtimalle AI içerik oluştur
 
 interface DailyStats {
   processed: number;
@@ -96,6 +98,19 @@ async function runDailyActivities() {
 
       // 6. Tracking aktiviteleri
       await performTrackingActivities(bot, client, persona);
+      await delay(DELAY_BETWEEN_ACTIONS);
+
+      // 7. AI İçerik Oluşturma (sadece AI destekli personalar için)
+      if (persona.aiEnabled && shouldPerform(AI_GENERATION_PROBABILITY)) {
+        try {
+          const aiResult = await performAIGeneratorActivity(bot, state, client);
+          if (aiResult.success) {
+            logger.bot(bot.username, `🤖 AI ${aiResult.type === 'diet' ? 'diyet' : 'egzersiz'} oluşturuldu!`);
+          }
+        } catch (error: any) {
+          logger.debug(`[${bot.username}] AI oluşturma hatası: ${error.message}`);
+        }
+      }
 
       stats.processed++;
       await delay(DELAY_BETWEEN_BOTS);
