@@ -101,6 +101,7 @@ class BotDatabase {
         read_blogs TEXT DEFAULT '[]',
         commented_posts TEXT DEFAULT '[]',
         liked_comments TEXT DEFAULT '[]',
+        replied_comments TEXT DEFAULT '[]',
         circle_id INTEGER,
         active_diet_id INTEGER,
         active_exercise_id INTEGER,
@@ -108,6 +109,19 @@ class BotDatabase {
         FOREIGN KEY (bot_id) REFERENCES bots(id)
       );
     `);
+
+    // Bot State tablosu migration - replied_comments kolonu ekle
+    try {
+      const stateColumns = this.db.prepare(`PRAGMA table_info(bot_states)`).all() as { name: string }[];
+      const stateColumnNames = stateColumns.map(c => c.name);
+      
+      if (!stateColumnNames.includes('replied_comments')) {
+        this.db.exec(`ALTER TABLE bot_states ADD COLUMN replied_comments TEXT DEFAULT '[]'`);
+        // Migration başarılı - ileride logger eklenebilir
+      }
+    } catch (e) {
+      // Kolon zaten varsa veya tablo yoksa (yeni kurulum) devam et
+    }
 
     // Activity Logs tablosu
     this.db. exec(`
@@ -246,6 +260,7 @@ class BotDatabase {
         read_blogs: [],
         commented_posts: [],
         liked_comments: [],
+        replied_comments: [],
         circle_id: null,
         active_diet_id: null,
         active_exercise_id: null
@@ -262,6 +277,7 @@ class BotDatabase {
       read_blogs: JSON.parse(row.read_blogs || '[]'),
       commented_posts: JSON.parse(row.commented_posts || '[]'),
       liked_comments:  JSON.parse(row.liked_comments || '[]'),
+      replied_comments: JSON.parse(row.replied_comments || '[]'),
       circle_id: row.circle_id,
       active_diet_id: row. active_diet_id,
       active_exercise_id: row.active_exercise_id
@@ -303,6 +319,10 @@ class BotDatabase {
     if (state. liked_comments !== undefined) {
       updates.push('liked_comments = ?');
       values.push(JSON.stringify(state.liked_comments));
+    }
+    if (state.replied_comments !== undefined) {
+      updates.push('replied_comments = ?');
+      values.push(JSON.stringify(state.replied_comments));
     }
     if (state.circle_id !== undefined) {
       updates. push('circle_id = ?');

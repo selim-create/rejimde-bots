@@ -74,6 +74,7 @@ export interface BotState {
   read_blogs: number[];
   commented_posts: number[];
   liked_comments: number[];
+  replied_comments: number[];
   circle_id: number | null;
   active_diet_id: number | null;
   active_exercise_id: number | null;

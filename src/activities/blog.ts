@@ -1,7 +1,7 @@
 import { LocalBot, BotState, BlogPost, Comment } from '../types';
 import { RejimdeAPIClient } from '../utils/api-client';
 import { botDb } from '../database/bot-db';
-import { OpenAIService } from '../services/openai-service';
+import { OpenAIService } from '../services/openai.service';
 import { PERSONA_CONFIGS, PersonaConfig } from '../config/personas.config';
 import { logger } from '../utils/logger';
 import { shouldPerform, pickRandom } from '../utils/random';
@@ -159,7 +159,8 @@ async function replyToComment(
     
     // Henüz cevap verilmemiş yorumlar
     const replyable = comments.filter((c: Comment) => 
-      c.reply_count === 0 || c.reply_count === undefined
+      !state.replied_comments.includes(c.id) &&
+      (c.reply_count === 0 || c.reply_count === undefined)
     );
     
     if (replyable.length === 0) return;
@@ -176,6 +177,8 @@ async function replyToComment(
     });
     
     if (result.status === 'success') {
+      state.replied_comments.push(parentComment.id);
+      botDb.updateState(bot.id, { replied_comments: state.replied_comments });
       botDb.logActivity(bot.id, 'comment_reply', 'comment', parentComment.id, true);
       logger.bot(bot.username, `Yoruma cevap: "${reply.substring(0, 50)}..."`);
     }
