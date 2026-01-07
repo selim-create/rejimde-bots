@@ -185,7 +185,7 @@ Bu blog için doğal bir yorum yaz.`;
     blogTitle?: string,
     persona?: PersonaConfig
   ): Promise<string> {
-    if (!this.isAvailable || !this. client) {
+    if (!this.isAvailable || !this.client) {
       return this.pickFallback(FALLBACK_COMMENT_REPLIES);
     }
 
@@ -246,7 +246,7 @@ Bu yoruma kısa bir yanıt yaz.`;
 
     } catch (error: any) {
       logger.debug(`OpenAI hatası: ${error.message}`);
-      return this. pickFallback(FALLBACK_COMMENT_REPLIES);
+      return this.pickFallback(FALLBACK_COMMENT_REPLIES);
     }
   }
 
