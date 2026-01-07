@@ -95,8 +95,10 @@ class BotDatabase {
         bot_id INTEGER UNIQUE NOT NULL,
         started_diets TEXT DEFAULT '[]',
         completed_diets TEXT DEFAULT '[]',
+        reviewed_diets TEXT DEFAULT '[]',
         started_exercises TEXT DEFAULT '[]',
         completed_exercises TEXT DEFAULT '[]',
+        reviewed_exercises TEXT DEFAULT '[]',
         followed_users TEXT DEFAULT '[]',
         read_blogs TEXT DEFAULT '[]',
         commented_posts TEXT DEFAULT '[]',
@@ -118,6 +120,16 @@ class BotDatabase {
       if (!stateColumnNames.includes('replied_comments')) {
         this.db.exec(`ALTER TABLE bot_states ADD COLUMN replied_comments TEXT DEFAULT '[]'`);
         // Migration başarılı - ileride logger eklenebilir
+      }
+      
+      // reviewed_diets kolonu ekle
+      if (!stateColumnNames.includes('reviewed_diets')) {
+        this.db.exec(`ALTER TABLE bot_states ADD COLUMN reviewed_diets TEXT DEFAULT '[]'`);
+      }
+      
+      // reviewed_exercises kolonu ekle
+      if (!stateColumnNames.includes('reviewed_exercises')) {
+        this.db.exec(`ALTER TABLE bot_states ADD COLUMN reviewed_exercises TEXT DEFAULT '[]'`);
       }
     } catch (e) {
       // Kolon zaten varsa veya tablo yoksa (yeni kurulum) devam et
@@ -254,8 +266,10 @@ class BotDatabase {
         bot_id: botId,
         started_diets: [],
         completed_diets: [],
+        reviewed_diets: [],
         started_exercises: [],
         completed_exercises: [],
+        reviewed_exercises: [],
         followed_users:  [],
         read_blogs: [],
         commented_posts: [],
@@ -271,8 +285,10 @@ class BotDatabase {
       bot_id: botId,
       started_diets: JSON.parse(row. started_diets || '[]'),
       completed_diets:  JSON.parse(row.completed_diets || '[]'),
+      reviewed_diets: JSON.parse(row.reviewed_diets || '[]'),
       started_exercises:  JSON.parse(row.started_exercises || '[]'),
       completed_exercises: JSON.parse(row. completed_exercises || '[]'),
+      reviewed_exercises: JSON.parse(row.reviewed_exercises || '[]'),
       followed_users: JSON. parse(row.followed_users || '[]'),
       read_blogs: JSON.parse(row.read_blogs || '[]'),
       commented_posts: JSON.parse(row.commented_posts || '[]'),
@@ -296,6 +312,10 @@ class BotDatabase {
       updates. push('completed_diets = ?');
       values.push(JSON.stringify(state.completed_diets));
     }
+    if (state.reviewed_diets !== undefined) {
+      updates.push('reviewed_diets = ?');
+      values.push(JSON.stringify(state.reviewed_diets));
+    }
     if (state. started_exercises !== undefined) {
       updates.push('started_exercises = ?');
       values.push(JSON.stringify(state.started_exercises));
@@ -303,6 +323,10 @@ class BotDatabase {
     if (state.completed_exercises !== undefined) {
       updates. push('completed_exercises = ?');
       values.push(JSON.stringify(state. completed_exercises));
+    }
+    if (state.reviewed_exercises !== undefined) {
+      updates.push('reviewed_exercises = ?');
+      values.push(JSON.stringify(state.reviewed_exercises));
     }
     if (state.followed_users !== undefined) {
       updates.push('followed_users = ?');
