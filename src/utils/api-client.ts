@@ -14,6 +14,20 @@ import {
 } from '../types';
 import { logger } from './logger';
 
+// AI Generator Response Types
+export interface GenerateDietResponse {
+  success: boolean;
+  data?: { id: number; title: string; slug: string };
+  redirect_url?: string;
+  message?: string;
+}
+
+export interface GenerateExerciseResponse {
+  success: boolean;
+  data?: { id: number; title: string; slug: string };
+  message?: string;
+}
+
 const API_BASE_URL = process.env. REJIMDE_API_URL || 'https://api.rejimde.com/wp-json';
 
 export class RejimdeAPIClient {
@@ -486,6 +500,56 @@ export class RejimdeAPIClient {
       return {
         status: 'error',
         message: error.response?. data?.message || error.message,
+      };
+    }
+  }
+
+  // ============ AI GENERATOR ============
+
+  /**
+   * AI Diyet Planı Oluştur
+   * POST /rejimde/v1/ai/generate-diet
+   * Timeout: 120 saniye (AI uzun sürebilir)
+   */
+  async generateDiet(formData: Record<string, any>): Promise<GenerateDietResponse> {
+    try {
+      const response = await this.client.post(
+        '/rejimde/v1/ai/generate-diet',
+        formData,
+        {
+          headers: this.getAuthHeaders(),
+          timeout: 120000, // 2 dakika
+        }
+      );
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error.response?.data?.message || error.message,
+      };
+    }
+  }
+
+  /**
+   * AI Egzersiz Planı Oluştur
+   * POST /rejimde/v1/ai/generate-exercise
+   * Timeout: 120 saniye
+   */
+  async generateExercise(formData: Record<string, any>): Promise<GenerateExerciseResponse> {
+    try {
+      const response = await this.client.post(
+        '/rejimde/v1/ai/generate-exercise',
+        formData,
+        {
+          headers: this.getAuthHeaders(),
+          timeout: 120000, // 2 dakika
+        }
+      );
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error.response?.data?.message || error.message,
       };
     }
   }
