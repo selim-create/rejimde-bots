@@ -457,10 +457,10 @@ export class RejimdeAPIClient {
     }
   }
 
-  async trackProfileView(expertId: number, sessionId: string): Promise<ApiResponse> {
+  async trackProfileView(expertSlug: string, sessionId: string): Promise<ApiResponse> {
     try {
       const response = await this.client.post('/rejimde/v1/profile-views/track', {
-        expert_id: expertId,
+        expert_slug: expertSlug,
         session_id: sessionId,
       });
       return response.data;
