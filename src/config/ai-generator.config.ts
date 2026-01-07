@@ -3,6 +3,14 @@
  * Form alanları için olası değerler ve rastgele data üreticileri
  */
 
+// ============ GLOBAL LIMITS ============
+
+export const GLOBAL_LIMITS = {
+  DAILY_DIET_LIMIT: 2,      // Tüm sistemde günde max 2 diyet
+  DAILY_EXERCISE_LIMIT: 3,  // Tüm sistemde günde max 3 egzersiz
+  DAILY_TOTAL_LIMIT: 5,     // Toplam günlük limit (dokümantasyon için, kod içinde ayrıca kontrol edilmez)
+};
+
 // ============ DIET CONFIG ============
 
 export const DIET_CONFIG = {

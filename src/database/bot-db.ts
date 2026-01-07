@@ -158,6 +158,19 @@ class BotDatabase {
       CREATE INDEX IF NOT EXISTS idx_activities_type ON activity_logs(activity_type);
       CREATE INDEX IF NOT EXISTS idx_activities_date ON activity_logs(created_at);
     `);
+
+    // Global Limits tablosu (AI içerik oluşturma günlük limitleri)
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS global_limits (
+        id INTEGER PRIMARY KEY,
+        date TEXT NOT NULL UNIQUE,
+        diets_created INTEGER DEFAULT 0,
+        exercises_created INTEGER DEFAULT 0,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+      
+      CREATE INDEX IF NOT EXISTS idx_global_limits_date ON global_limits(date);
+    `);
   }
 
   // ============ BOT CRUD ============
@@ -549,6 +562,173 @@ class BotDatabase {
     });
     return result;
   }
+
+  // ============ GLOBAL LIMITS (AI Content Generation) ============
+
+  /**
+   * Bugünkü global limitleri getirir
+   * @param date YYYY-MM-DD formatında tarih
+   * @returns Bugün oluşturulan diyet ve egzersiz sayısı
+   */
+  getGlobalLimits(date: string): { diets: number; exercises: number } {
+    const row = this.db.prepare(`
+      SELECT diets_created, exercises_created FROM global_limits WHERE date = ?
+    `).get(date) as { diets_created: number; exercises_created: number } | undefined;
+
+    return {
+      diets: row?.diets_created || 0,
+      exercises: row?.exercises_created || 0,
+    };
+  }
+
+  /**
+   * Bugün diyet oluşturulabilir mi kontrol eder
+   * @param date YYYY-MM-DD formatında tarih
+   * @param limit Maksimum günlük diyet limiti
+   * @returns true ise diyet oluşturulabilir
+   */
+  canCreateDiet(date: string, limit: number): boolean {
+    const { diets } = this.getGlobalLimits(date);
+    return diets < limit;
+  }
+
+  /**
+   * Bugün egzersiz oluşturulabilir mi kontrol eder
+   * @param date YYYY-MM-DD formatında tarih
+   * @param limit Maksimum günlük egzersiz limiti
+   * @returns true ise egzersiz oluşturulabilir
+   */
+  canCreateExercise(date: string, limit: number): boolean {
+    const { exercises } = this.getGlobalLimits(date);
+    return exercises < limit;
+  }
+
+  /**
+   * Diyet sayacını atomik olarak artırır (rezervasyon)
+   * @param date YYYY-MM-DD formatında tarih
+   * @param limit Maksimum günlük diyet limiti
+   * @returns true ise rezervasyon başarılı, false ise limit doldu
+   */
+  incrementGlobalDietCount(date: string, limit: number): boolean {
+    // Transaction ile atomic işlem
+    const transaction = this.db.transaction(() => {
+      // Önce kayıt var mı kontrol et, yoksa oluştur
+      const existing = this.db.prepare(`
+        SELECT diets_created FROM global_limits WHERE date = ?
+      `).get(date) as { diets_created: number } | undefined;
+
+      if (!existing) {
+        // İlk kayıt - oluştur
+        // Race condition handling: INSERT OR IGNORE ile eşzamanlı INSERT'leri yönet
+        this.db.prepare(`
+          INSERT OR IGNORE INTO global_limits (date, diets_created, exercises_created, updated_at)
+          VALUES (?, 0, 0, CURRENT_TIMESTAMP)
+        `).run(date);
+        
+        // Tekrar oku (başka transaction oluşturmuş olabilir)
+        const recheck = this.db.prepare(`
+          SELECT diets_created FROM global_limits WHERE date = ?
+        `).get(date) as { diets_created: number } | undefined;
+        
+        if (!recheck || recheck.diets_created >= limit) {
+          return false;
+        }
+      } else {
+        // Limit kontrolü
+        if (existing.diets_created >= limit) {
+          return false; // Limit doldu
+        }
+      }
+
+      // Sayacı artır
+      const updateResult = this.db.prepare(`
+        UPDATE global_limits 
+        SET diets_created = diets_created + 1, updated_at = CURRENT_TIMESTAMP
+        WHERE date = ? AND diets_created < ?
+      `).run(date, limit);
+      
+      // UPDATE başarısız olduysa (0 satır etkilendi), başka bir transaction kapmış demektir
+      return updateResult.changes === 1;
+    });
+
+    return transaction();
+  }
+
+  /**
+   * Egzersiz sayacını atomik olarak artırır (rezervasyon)
+   * @param date YYYY-MM-DD formatında tarih
+   * @param limit Maksimum günlük egzersiz limiti
+   * @returns true ise rezervasyon başarılı, false ise limit doldu
+   */
+  incrementGlobalExerciseCount(date: string, limit: number): boolean {
+    // Transaction ile atomic işlem
+    const transaction = this.db.transaction(() => {
+      // Önce kayıt var mı kontrol et, yoksa oluştur
+      const existing = this.db.prepare(`
+        SELECT exercises_created FROM global_limits WHERE date = ?
+      `).get(date) as { exercises_created: number } | undefined;
+
+      if (!existing) {
+        // İlk kayıt - oluştur
+        // Race condition handling: INSERT OR IGNORE ile eşzamanlı INSERT'leri yönet
+        this.db.prepare(`
+          INSERT OR IGNORE INTO global_limits (date, diets_created, exercises_created, updated_at)
+          VALUES (?, 0, 0, CURRENT_TIMESTAMP)
+        `).run(date);
+        
+        // Tekrar oku (başka transaction oluşturmuş olabilir)
+        const recheck = this.db.prepare(`
+          SELECT exercises_created FROM global_limits WHERE date = ?
+        `).get(date) as { exercises_created: number } | undefined;
+        
+        if (!recheck || recheck.exercises_created >= limit) {
+          return false;
+        }
+      } else {
+        // Limit kontrolü
+        if (existing.exercises_created >= limit) {
+          return false; // Limit doldu
+        }
+      }
+
+      // Sayacı artır
+      const updateResult = this.db.prepare(`
+        UPDATE global_limits 
+        SET exercises_created = exercises_created + 1, updated_at = CURRENT_TIMESTAMP
+        WHERE date = ? AND exercises_created < ?
+      `).run(date, limit);
+      
+      // UPDATE başarısız olduysa (0 satır etkilendi), başka bir transaction kapmış demektir
+      return updateResult.changes === 1;
+    });
+
+    return transaction();
+  }
+
+  /**
+   * Diyet sayacını azaltır (rollback için)
+   * @param date YYYY-MM-DD formatında tarih
+   */
+  decrementGlobalDietCount(date: string): void {
+    this.db.prepare(`
+      UPDATE global_limits 
+      SET diets_created = MAX(0, diets_created - 1), updated_at = CURRENT_TIMESTAMP
+      WHERE date = ?
+    `).run(date);
+  }
+
+  /**
+   * Egzersiz sayacını azaltır (rollback için)
+   * @param date YYYY-MM-DD formatında tarih
+   */
+  decrementGlobalExerciseCount(date: string): void {
+    this.db.prepare(`
+      UPDATE global_limits 
+      SET exercises_created = MAX(0, exercises_created - 1), updated_at = CURRENT_TIMESTAMP
+      WHERE date = ?
+    `).run(date);
+  }
+
   close(): void {
     this.db.close();
   }
