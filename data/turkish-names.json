@@ -1,0 +1,43 @@
+{
+  "male": [
+    "Arif", "Asım", "Atakan", "Ayberk", "Aydın", "Baha", "Baran", "Baran Can", 
+    "Barış", "Batuhan", "Berat", "Berkay", "Berkay Can", "Bilal", "Bora", 
+    "Buğra", "Burak", "Burak Alp", "Caner", "Cem", "Cem Berk", "Cemal", 
+    "Cemal Ali", "Cihan", "Coşkun", "Çağatay", "Demir", "Deniz", "Doğan", 
+    "Doğukan", "Efe", "Emrah", "Emre", "Emre Can", "Enes", "Eray", "Ercan", 
+    "Erdem", "Eren", "Eren Can", "Erhan", "Erol", "Ertuğrul", "Evren", "Fatih", 
+    "Fatih Selim", "Ferhat", "Fırat", "Fikret", "Furkan", "Gökhan", "Görkem", 
+    "Hakan", "Halil", "Hamit", "Harun", "Hasan", "Hasan Tahir", "Haydar", "Hüseyin", 
+    "Hüseyin Eren", "İbrahim", "İbrahim Halil", "İhsan", "İlker", "Kaan", "Kaan Alp", 
+    "Kadir", "Kadir Emrah", "Kamil", "Kazım", "Kemal", "Kemal Can", "Kenan", "Koray", 
+    "Kürşat", "Levent", "Mahir", "Mazhar", "Mehmet", "Mehmet Ali", "Melih", "Mert", 
+    "Metin", "Murat", "Murat Can", "Mustafa", "Mustafa Kemal", "Necati", "Nihat", "Oğuz", 
+    "Oğuzhan", "Okan", "Oktay", "Onur", "Orhan", "Osman", "Osman Gazi", "Ömer", "Ömer Faruk", 
+    "Özgür", "Ramazan", "Rasim", "Recep", "Salih", "Samet", "Sami", "Sefa", "Selim", "Serdar", 
+    "Serhat", "Serkan", "Serkan Tolga", "Sinan", "Süleyman", "Şahin", "Taha", "Tamer", "Taner", 
+    "Tarık", "Teoman", "Tolga", "Tolunay", "Tuncay", "Turgay", "Uğur", "Ulaş", "Umut", "Veli", 
+    "Volkan", "Yasin", "Yaşar", "Yavuz", "Yiğit", "Yiğit Alp", "Yunus", "Yusuf", "Yusuf Emir", 
+    "Zafer", "Zeki", "Kağan", "Kerem", "Kerim", "Sezer", "Zeynel", "Oğul", "Cansel", "Berk", 
+    "Can", "Devrim", "Özgürcan", "Poyraz", "Alp", "Hikmet", "Hakkı", "Uygar", "Uluç", "Çetin", 
+    "Cihangir", "Ümit", "Göktuğ", "Rafet", "Vedat", "Ilgın", "Derya", "Yavuz Selim"
+  ],
+  "female":  [
+    "Fatma", "Ayşe", "Emine", "Hatice", "Zeynep", "Elif", "Meryem", "Şerife", 
+    "Zehra", "Sultan", "Hanife", "Merve", "Esra", "Büşra", "Gizem", "Derya", "Seda", 
+    "Gamze", "Özlem", "Sibel", "Ebru", "Pınar", "Aslı", "Burcu", "Ceren", "Deniz", 
+    "Dilara", "Ece", "Ezgi", "Gül", "İrem", "Melis", "Nazlı", "Naz", "Selin", "Simge", 
+    "Tuğba", "Yağmur", "Aylin", "Başak", "Cansu", "Damla", "Defne", "Dila", "Ela", 
+    "Eylül", "Hande", "İlayda", "Kübra", "Melisa", "Nisan", "Sude", "Şeyma", "Tuba", 
+    "Yasemin", "Aleyna", "Buse", "Cemre", "Duygu", "Fulya", "Hilal", "Kardelen", "Nehir", 
+    "Fatma Nur", "Ayşe Nur", "Emine Hatice", "Zeynep Elif", "Elif Su", "Meryem Zehra", "Zehra Nur", 
+    "Merve Sena", "Esra Betül", "Büşra Nur", "Gizem Su", "Derya Deniz", "Gamze Nur", "Özlem Su", 
+    "Ebru Naz", "Aslı Nur", "Burcu Su", "Ceren Naz", "Dilara Su", "Ezgi Nur", "İrem Su", "Melis Naz", 
+    "Selin Nur", "Tuğba Su", "Yağmur Naz", "", "Adile", "Afife", "Ahu", "Aysel", "Belgin", "Berna", 
+    "Berrin", "Beyza", "Canan", "Cavidan", "Çiğdem", "Dilan", "Dilek", "Fadime", "Figen", "Filiz", 
+    "Gonca", "Gülay", "Gülcan", "Gülşen", "Havva", "İnci", "Kadriye", "Lale", "Leyla", "Mihriban", 
+    "Mualla", "Nazan", "Necla", "Nergis", "Nilay", "Nuray", "Pelin", "Rabia", "Rana", "Seher", "Semra", 
+    "Serap", "Songül", "Şükriye", "Tülay", "Yelda", "Yeter", "Zerrin", "Zeliha", "Semiha", "Ayşegül", 
+    "Devrim", "Ferhunde", "Aybüke", "Ala", "Buket", "Zeynep Naz", "Süheyla", "Süreyya", "Pembe", "Suzan", 
+    "Oya", "Öykü", "Ümran", "Müzeyyen"
+  ]
+}
