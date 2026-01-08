@@ -4,6 +4,9 @@ REM ============================================
 REM System Status Check Script
 REM ============================================
 
+REM Proje dizini
+set PROJECT_DIR=C:\Projects\rejimde-bots
+
 echo.
 echo ============================================
 echo   Rejimde Bots - System Status
@@ -43,20 +46,20 @@ echo.
 
 REM Proje dizini kontrolü
 echo [4] Proje Dizini:
-if exist "C:\Projects\rejimde-bots" (
-    echo    [OK] C:\Projects\rejimde-bots mevcut
+if exist "%PROJECT_DIR%" (
+    echo    [OK] %PROJECT_DIR% mevcut
 ) else (
-    echo    [UYARI] C:\Projects\rejimde-bots bulunamadı!
+    echo    [UYARI] %PROJECT_DIR% bulunamadı!
 )
 echo.
 
 REM Log dosyaları
 echo [5] Son Log Dosyaları:
-if exist "C:\Projects\rejimde-bots\logs" (
-    dir /b /o-d "C:\Projects\rejimde-bots\logs\*.log" 2>nul | findstr /r ".*" >nul
+if exist "%PROJECT_DIR%\logs" (
+    dir /b /o-d "%PROJECT_DIR%\logs\*.log" 2>nul | findstr /r ".*" >nul
     if %errorlevel% equ 0 (
         echo.
-        dir /b /o-d "C:\Projects\rejimde-bots\logs\*.log" 2>nul | findstr /n "^" | findstr "^[1-5]:"
+        dir /b /o-d "%PROJECT_DIR%\logs\*.log" 2>nul | findstr /n "^" | findstr "^[1-5]:"
         echo.
     ) else (
         echo    [UYARI] Log dosyası bulunamadı
@@ -68,8 +71,8 @@ echo.
 
 REM Veritabanı boyutu
 echo [6] Veritabanı Boyutu:
-if exist "C:\Projects\rejimde-bots\data\bots.sqlite" (
-    for %%A in ("C:\Projects\rejimde-bots\data\bots.sqlite") do (
+if exist "%PROJECT_DIR%\data\bots.sqlite" (
+    for %%A in ("%PROJECT_DIR%\data\bots.sqlite") do (
         set size=%%~zA
         set /a sizeMB=!size! / 1048576
         echo    bots.sqlite: !sizeMB! MB
@@ -81,8 +84,8 @@ echo.
 
 REM Son çalışma zamanı (log dosyasından)
 echo [7] Son Çalışma Zamanı:
-if exist "C:\Projects\rejimde-bots\logs" (
-    for /f "delims=" %%i in ('dir /b /o-d "C:\Projects\rejimde-bots\logs\daily-*.log" 2^>nul') do (
+if exist "%PROJECT_DIR%\logs" (
+    for /f "delims=" %%i in ('dir /b /o-d "%PROJECT_DIR%\logs\daily-*.log" 2^>nul') do (
         set lastlog=%%i
         goto :found
     )

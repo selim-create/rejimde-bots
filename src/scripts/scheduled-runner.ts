@@ -839,13 +839,16 @@ async function performTrackingActivities(
 // ============ FINAL REPORT ============
 
 function printFinalReport(stats: ScheduledStats) {
+  const SECONDS_PER_HOUR = 3600;
+  const SECONDS_PER_MINUTE = 60;
+  
   const duration = stats.endTime 
     ? (stats.endTime.getTime() - stats.startTime.getTime()) / 1000 
     : 0;
   
-  const hours = Math.floor(duration / 3600);
-  const minutes = Math.floor((duration % 3600) / 60);
-  const seconds = Math.floor(duration % 60);
+  const hours = Math.floor(duration / SECONDS_PER_HOUR);
+  const minutes = Math.floor((duration % SECONDS_PER_HOUR) / SECONDS_PER_MINUTE);
+  const seconds = Math.floor(duration % SECONDS_PER_MINUTE);
 
   console.log('');
   console.log('========================================');
