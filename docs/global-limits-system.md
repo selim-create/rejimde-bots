@@ -19,9 +19,9 @@ CREATE TABLE IF NOT EXISTS global_limits (
 ### Configuration (ai-generator.config.ts)
 ```typescript
 export const GLOBAL_LIMITS = {
-  DAILY_DIET_LIMIT: 2,      // Max 2 diets per day across all bots
+  DAILY_DIET_LIMIT: 3,      // Max 2 diets per day across all bots
   DAILY_EXERCISE_LIMIT: 3,  // Max 3 exercises per day across all bots
-  DAILY_TOTAL_LIMIT: 5,     // Total daily limit
+  DAILY_TOTAL_LIMIT: 6,     // Total daily limit
 };
 ```
 
