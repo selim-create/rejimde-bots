@@ -16,6 +16,8 @@
     "run-daily": "ts-node src/scripts/run-daily.ts",
     "run-daily:test": "ts-node src/scripts/run-daily.ts --limit=5",
     
+    "scheduled-run": "ts-node src/scripts/scheduled-runner.ts",
+    
     "toggle-bots": "ts-node src/scripts/toggle-bots.ts",
     "toggle-bots:stats": "ts-node src/scripts/toggle-bots.ts --stats",
     "toggle-bots:off": "ts-node src/scripts/toggle-bots.ts --all --inactive",
