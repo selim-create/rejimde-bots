@@ -303,11 +303,16 @@ async function performBlogActivities(
       const comments = await client.getComments(blog.id);
       logger.debug(`[${bot.username}] ${comments.length} yorum bulundu`);
 
-      // Henüz cevap verilmemiş ana yorumlar (parent === 0)
-      const ROOT_COMMENT_PARENT_ID = 0;
+      // Ana yorumları bul (parent yok, null, 0, veya "0")
+      const isRootComment = (comment: any): boolean => {
+        return !comment.parent || 
+               comment.parent === 0 || 
+               comment.parent === "0" ||
+               comment.parent === null;
+      };
+
       const replyableComments = comments.filter((c: any) => 
-        !state.replied_comments.includes(c.id) &&
-        c.parent === ROOT_COMMENT_PARENT_ID
+        !state.replied_comments.includes(c.id) && isRootComment(c)
       );
 
       logger.debug(`[${bot.username}] ${replyableComments.length} cevap verilebilir ana yorum var`);

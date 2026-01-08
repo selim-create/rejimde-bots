@@ -25,6 +25,7 @@ export interface GenerateDietResponse {
 export interface GenerateExerciseResponse {
   success: boolean;
   data?: { id: number; title: string; slug: string };
+  redirect_url?: string;
   message?: string;
 }
 

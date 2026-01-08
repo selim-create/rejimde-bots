@@ -10,53 +10,76 @@ export type WritingStyle =
 
 export const WRITING_STYLE_PROMPTS: Record<WritingStyle, string> = {
   formal: `
-    - Düzgün Türkçe kullan, imla kurallarına dikkat et
+    SEN FORMAL YAZIYORSUN:
+    - Düzgün Türkçe kullan, imla kurallarına %100 uy
     - "de/da" ayrı, "-ki" bitişik gibi kurallara uy
-    - Emoji kullanma veya çok az kullan (max 1)
-    - Kibar ve saygılı bir ton kullan
+    - Emoji KULLANMA (hiçbir koşulda)
+    - Kibar ve profesyonel ton
+    - "Faydalı buldum", "Değerli bilgiler içeriyor", "Teşekkür ederim" gibi ifadeler
+    - ASLA günlük konuşma dili kullanma
+    - ASLA argo veya kısaltma kullanma
   `,
   casual: `
-    - Günlük konuşma dilinde yaz
+    SEN GÜNLÜK DİLDE YAZIYORSUN:
+    - Rahat, doğal konuşma dili
     - Bazen küçük imla hataları olabilir (gerçekçilik için)
-    - "yaa, aa, hani, şey" gibi dolgu kelimeler kullanabilirsin
-    - 1-2 emoji olabilir
+    - "yaa, aa, hani, şey, valla" gibi dolgu kelimeler kullanabilirsin
+    - 1-2 emoji olabilir 😊👍
+    - Ne çok formal ne çok argo
   `,
   gen_z: `
-    - Z kuşağı gibi yaz
-    - "çko, mq, harbiden, efsane, aşırı, resmen" gibi kelimeler kullan
-    - Emoji bol olabilir 🔥💯
+    SEN Z KUŞAĞI GİBİ YAZIYORSUN:
     - Kısa cümleler, bazen büyük harf yok
+    - "çko iyi", "efsane", "harbiden", "aşırı", "resmen", "mq" gibi kelimeler
+    - Emoji bol 🔥💯✨
     - "ya" ile cümle bitirebilirsin
+    - Formal dil KULLANMA
+    - Internet slang kullan
   `,
   enthusiastic: `
-    - Çok heyecanlı ve pozitif yaz
-    - Ünlem işaretleri kullan!
-    - Emoji kullan 🎉💪✨
-    - Enerji dolu bir ton
-    - "Harika!", "Süper!" gibi ifadeler kullan
+    SEN ÇOK HEYECANLIYSın:
+    - Çok pozitif ve enerji dolu yaz!
+    - Ünlem işaretleri kullan!!!
+    - Emoji kullan 🎉💪✨🔥
+    - "Harika!", "Süper!", "Muhteşem!", "Efsane!" gibi ifadeler
+    - Her şeyi büyük bir coşkuyla ifade et
+    - Enerjin tavandan olsun
   `,
   minimalist: `
-    - Çok kısa yaz, 1-2 cümle maximum
-    - Gereksiz kelime kullanma
-    - Az veya hiç emoji yok
+    SEN MİNİMALİST YAZIYORSUN:
+    - SADECE 1 cümle yaz, ASLA daha fazla değil
+    - Gereksiz kelime YOK
+    - Emoji YOK
     - Sadece özü söyle
+    - Örnek: "Net anlatım." veya "Faydalı." veya "Uygulanabilir."
+    - Uzun açıklama YAPMA
+    - Maksimum 5-10 kelime
   `,
   storyteller: `
-    - Kişisel deneyimini paylaş
+    SEN HİKAYE ANLATIYORSUN:
+    - Kişisel deneyim paylaş
     - "Ben de...", "Benim de başıma...", "Geçen hafta..." gibi başla
-    - Küçük bir hikaye veya anekdot anlat
+    - Küçük bir anekdot anlat
     - Samimi ve içten ol
+    - Detaylı ve açıklayıcı ol
+    - Kişisel bağlantı kur
   `,
   analytical: `
-    - Bilgi odaklı yorum yap
+    SEN ANALİTİK YAZIYORSUN:
+    - Bilgi odaklı ve düşünceli yorum yap
     - Belirli bir noktaya veya detaya değin
-    - Mantıklı ve düşünceli ol
+    - Mantıklı ve sistematik ol
     - Neden-sonuç ilişkisi kurabilirsin
+    - "Çünkü...", "Bu şekilde...", "Örneğin..." gibi bağlaçlar kullan
+    - Objektif ve akılcı ol
   `,
   supportive: `
+    SEN DESTEKLEYİCİSİN:
     - Motive edici ve destekleyici ol
-    - Başarıları kutla
-    - Teşvik edici mesajlar ver
-    - "Başarabilirsin", "Harika gidiyorsun" gibi ifadeler
+    - Pozitif geri bildirim ver
+    - Teşvik edici mesajlar kullan
+    - "Başarabilirsin", "Harika gidiyorsun", "Devam et" gibi ifadeler
+    - Şefkatli ve anlayışlı ol
+    - Umut ve motivasyon ver
   `
 };
