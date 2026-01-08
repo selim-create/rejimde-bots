@@ -100,23 +100,42 @@ async function createDiet_internal(
     // 3. API'ye gönder
     const result = await client.generateDiet(formData);
 
-    if (result.success && result.data?.id) {
-      // State güncelle (bot tracking için)
-      aiState.created_diets_today++;
-      aiState.created_diet_ids.push(result.data.id);
-      
-      state.ai_generator = aiState;
-      botDb.updateState(bot.id, { ai_generator: aiState });
+    // Başarı kontrolünü genişlet
+    const isSuccess = 
+      result.success === true || 
+      result.message?.toLowerCase().includes('oluşturuldu') ||
+      result.message?.toLowerCase().includes('başarı') ||
+      !!result.redirect_url;
 
-      // Activity log
-      botDb.logActivity(bot.id, 'ai_diet_created', 'diet', result.data.id, true);
+    if (isSuccess) {
+      // ID'yi farklı yerlerden almaya çalış
+      const contentId = result.data?.id || 
+        extractIdFromUrl(result.redirect_url) ||
+        null;
 
-      // Log mesajı
-      const dietType = formData.diet_type || 'Diyet';
-      const days = formData.days || '7';
-      logger.bot(bot.username, `🥗 AI Diyet oluşturuldu: "${result.data.title}" (${dietType}, ${days} gün)`);
+      if (contentId) {
+        // State güncelle (bot tracking için)
+        aiState.created_diets_today++;
+        aiState.created_diet_ids.push(contentId);
+        
+        state.ai_generator = aiState;
+        botDb.updateState(bot.id, { ai_generator: aiState });
 
-      return { success: true, type: 'diet', id: result.data.id };
+        // Activity log
+        botDb.logActivity(bot.id, 'ai_diet_created', 'diet', contentId, true);
+
+        // Log mesajı
+        const dietType = formData.diet_type || 'Diyet';
+        const days = formData.days || '7';
+        logger.bot(bot.username, `🥗 AI Diyet oluşturuldu: ID=${contentId} (${dietType}, ${days} gün)`);
+
+        return { success: true, type: 'diet', id: contentId };
+      } else {
+        // Başarılı görünüyor ama ID bulunamadı
+        logger.debug(`[${bot.username}] AI diyet oluşturuldu ama ID bulunamadı: ${result.message}`);
+        // Yine de başarılı sayıyoruz çünkü API başarılı dönmüş
+        return { success: true, type: 'diet' };
+      }
     } else {
       // API hatası - rollback yap
       logger.debug(`[${bot.username}] AI diyet oluşturulamadı: ${result.message || 'Bilinmeyen hata'}`);
@@ -131,6 +150,15 @@ async function createDiet_internal(
     botDb.logActivity(bot.id, 'ai_diet_created', 'diet', null, false, error.message);
     return { success: false, type: 'diet' };
   }
+}
+
+/**
+ * URL'den ID çıkartma helper fonksiyonu
+ */
+function extractIdFromUrl(url?: string): number | null {
+  if (!url) return null;
+  const match = url.match(/\/(\d+)\/?$/);
+  return match ? parseInt(match[1], 10) : null;
 }
 
 /**
@@ -165,23 +193,42 @@ async function createExercise_internal(
     // 3. API'ye gönder
     const result = await client.generateExercise(formData);
 
-    if (result.success && result.data?.id) {
-      // State güncelle (bot tracking için)
-      aiState.created_exercises_today++;
-      aiState.created_exercise_ids.push(result.data.id);
-      
-      state.ai_generator = aiState;
-      botDb.updateState(bot.id, { ai_generator: aiState });
+    // Başarı kontrolünü genişlet
+    const isSuccess = 
+      result.success === true || 
+      result.message?.toLowerCase().includes('oluşturuldu') ||
+      result.message?.toLowerCase().includes('başarı') ||
+      !!result.redirect_url;
 
-      // Activity log
-      botDb.logActivity(bot.id, 'ai_exercise_created', 'exercise', result.data.id, true);
+    if (isSuccess) {
+      // ID'yi farklı yerlerden almaya çalış
+      const contentId = result.data?.id || 
+        extractIdFromUrl(result.redirect_url) ||
+        null;
 
-      // Log mesajı
-      const fitnessLevel = formData.fitness_level || 'intermediate';
-      const days = formData.days || '14';
-      logger.bot(bot.username, `💪 AI Egzersiz oluşturuldu: "${result.data.title}" (${fitnessLevel}, ${days} gün)`);
+      if (contentId) {
+        // State güncelle (bot tracking için)
+        aiState.created_exercises_today++;
+        aiState.created_exercise_ids.push(contentId);
+        
+        state.ai_generator = aiState;
+        botDb.updateState(bot.id, { ai_generator: aiState });
 
-      return { success: true, type: 'exercise', id: result.data.id };
+        // Activity log
+        botDb.logActivity(bot.id, 'ai_exercise_created', 'exercise', contentId, true);
+
+        // Log mesajı
+        const fitnessLevel = formData.fitness_level || 'intermediate';
+        const days = formData.days || '14';
+        logger.bot(bot.username, `💪 AI Egzersiz oluşturuldu: ID=${contentId} (${fitnessLevel}, ${days} gün)`);
+
+        return { success: true, type: 'exercise', id: contentId };
+      } else {
+        // Başarılı görünüyor ama ID bulunamadı
+        logger.debug(`[${bot.username}] AI egzersiz oluşturuldu ama ID bulunamadı: ${result.message}`);
+        // Yine de başarılı sayıyoruz çünkü API başarılı dönmüş
+        return { success: true, type: 'exercise' };
+      }
     } else {
       // API hatası - rollback yap
       logger.debug(`[${bot.username}] AI egzersiz oluşturulamadı: ${result.message || 'Bilinmeyen hata'}`);
