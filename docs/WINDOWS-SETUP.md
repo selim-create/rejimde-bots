@@ -223,7 +223,7 @@ Sistem aşağıdaki aktiviteleri gerçekleştirir:
 Script otomatik olarak 30 günden eski log dosyalarını siler. Bu davranışı değiştirmek için `run-daily.bat` dosyasındaki şu satırı düzenleyin:
 
 ```batch
-forfiles /p logs /s /m *.log /d -30 /c "cmd /c del @path" 2>nul
+forfiles /p logs /m *.log /d -30 /c "cmd /c del @path" 2>nul
 ```
 
 `-30` değerini değiştirerek saklama süresini ayarlayabilirsiniz.

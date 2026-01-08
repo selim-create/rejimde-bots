@@ -30,7 +30,7 @@ echo [OK] Başlatılıyor...
 echo.
 
 REM npm run scheduled-run çalıştır
-call npm run scheduled-run 2>&1 | tee %logfile%
+call npm run scheduled-run >> %logfile% 2>&1
 
 echo.
 echo ============================================

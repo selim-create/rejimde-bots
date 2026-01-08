@@ -36,6 +36,6 @@ echo End Time: %datetime:~8,2%:%datetime:~10,2%:%datetime:~12,2% >> %logfile%
 echo ============================================ >> %logfile%
 
 REM Eski log dosyalarını temizle (30 günden eski)
-forfiles /p logs /s /m *.log /d -30 /c "cmd /c del @path" 2>nul
+forfiles /p logs /m *.log /d -30 /c "cmd /c del @path" 2>nul
 
 exit /b 0
